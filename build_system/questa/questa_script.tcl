@@ -22,8 +22,21 @@ for {set i 0} {$i < [llength $FILES_RTL_LIST]} {incr i} {
     lset FILES_RTL_LIST $i $appended
 }
 
-set fp [open "files_rtl.lst" w+]  
+set fp [open $LIST_TB r]
+set file_data [read $fp]
+close $fp
+
+set FILES_TB_LIST [split $file_data "\n"]
+for {set i 0} {$i < [llength $FILES_TB_LIST]} {incr i} {
+    set appended ../../../[lindex $FILES_TB_LIST $i]
+    lset FILES_TB_LIST $i $appended
+}
+
+set fp [open "files_rtl.lst" w+]
 foreach rtl $FILES_RTL_LIST {
+    puts $fp $rtl
+}
+foreach rtl $FILES_TB_LIST {
     puts $fp $rtl
 }
 close $fp

@@ -1,0 +1,5 @@
+tb/tb_dma/tb_dma.sv
+tb/tb_dma_csr/tb_dma_csr.sv
+tb/tb_dma_decoder/tb_dma_decoder.sv
+tb/tb_dma_engine/tb_dma_engine.sv
+tb/tb_dma_echodevice/tb_dma_echodevice.sv

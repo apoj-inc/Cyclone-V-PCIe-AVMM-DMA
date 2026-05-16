@@ -8,4 +8,5 @@ rtl/avmm_dma/avmm_dma_user_msix.sv
 rtl/avmm_dma/avmm_exporter.sv
 rtl/primitives/stream_arbiter.sv
 rtl/primitives/stream_fifo.sv
-tb/tb_dma/tb_dma.sv
+rtl/example/external_csr.sv
+rtl/example/avmm_dma_echodevice.sv
