@@ -355,7 +355,7 @@ Archived: https://web.archive.org/web/20260309112117/https://askubuntu.com/quest
 Thanks to MIEM HSE (HSE Tikhonov Moscow Institute of Electronics and Mathematics) for providing all necessary
 hardware for me to be able to create this highly educational and functional project.
 
-Thanks to E. V. Lezhnev, V. V. Zunin, A. A. Amerikanov, L. G. Evtushenko, A. Yu. Romanov and the rest of
+Thanks to E. V. Lezhnev, M. Yu. Romashikhin, V. V. Zunin, A. A. Amerikanov, L. G. Evtushenko, A. Yu. Romanov and the rest of
 CAD laboratory for the support throughought the development.
 
 Thanks to [Elgrush](https://github.com/Elgrush), [MichShch](https://github.com/MichShch), [Timur123](https://github.com/Timur132) and Don_Dimon
