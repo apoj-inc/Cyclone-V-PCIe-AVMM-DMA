@@ -135,6 +135,11 @@ Command for programming the device:
 make -f build_system/quartus/makefile TOPLEVEL=<SystemVerilog module name> CABLE_NAME=C5P JTAG_CHAIN_DEVNUM=1 program
 ```
 
+To compile and program the example project provided in this repository (DMA echodevice):
+```
+make -f build_system/quartus/makefile TOPLEVEL=toplevel CABLE_NAME=C5P JTAG_CHAIN_DEVNUM=1 program
+```
+
 ### Adding new HDL sources
 
 #### Adding RTL and RTL-adjacent sources
