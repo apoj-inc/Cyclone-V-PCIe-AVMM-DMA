@@ -75,6 +75,12 @@ Running a testbench and then launching Questa GUI for waveform inspection:
 make -f build_system/questa/makefile TOPLEVEL=<SystemVerilog module name> run
 make -f build_system/questa/makefile TOPLEVEL=<SystemVerilog module name> wave
 ```
+Example:
+```
+make -f build_system/questa/makefile TOPLEVEL=tb_dma_echodevice run
+make -f build_system/questa/makefile TOPLEVEL=tb_dma_echodevice wave
+```
+
 Note: before running `make -f build_system/questa/makefile ... wave` command make sure that the testbench was executed beforehand.
 
 #### Creating a custom testbench
@@ -89,6 +95,11 @@ Running a testbench and then launching Questa GUI for waveform inspection:
 ```
 make -f cctb/build/makefile COCOTB_TOPLEVEL=<python file without .py> run
 make -f cctb/build/makefile COCOTB_TOPLEVEL=<python file without .py> wave
+```
+Example:
+```
+make -f cctb/build/makefile COCOTB_TOPLEVEL=tb_dma_echodevice run
+make -f cctb/build/makefile COCOTB_TOPLEVEL=tb_dma_echodevice wave
 ```
 Note: before running `make -f cctb/build/makefile ... wave` command make sure that the testbench was executed beforehand.
 
@@ -115,6 +126,11 @@ because using raw `$finish()` in a Cocotb context results in Cocotb reporting a 
 ```
 make -f build_system/quartus/makefile TOPLEVEL=<SystemVerilog module name> compile
 ```
+Example:
+```
+make -f build_system/quartus/makefile TOPLEVEL=toplevel compile
+```
+
 Device programming:
 ```
 make -f build_system/quartus/makefile TOPLEVEL=<SystemVerilog module name> CABLE_NAME=<cable name> JTAG_CHAIN_DEVNUM=<number> program
@@ -135,7 +151,7 @@ Command for programming the device:
 make -f build_system/quartus/makefile TOPLEVEL=<SystemVerilog module name> CABLE_NAME=C5P JTAG_CHAIN_DEVNUM=1 program
 ```
 
-To compile and program the example project provided in this repository (DMA echodevice):
+Example:
 ```
 make -f build_system/quartus/makefile TOPLEVEL=toplevel CABLE_NAME=C5P JTAG_CHAIN_DEVNUM=1 program
 ```
