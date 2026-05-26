@@ -39,6 +39,7 @@ module avmm_dma_engine #(
     input  logic [DMA_BURST_WIDTH-1:0]   dma_task_burst_i  ,
     input  logic [DMA_OFFFSET_WIDTH-1:0] dma_task_offset_i ,
     input  logic                         dma_task_write_i  ,
+    input  logic [TX_BURST_WIDTH-1:0]    dma_task_init_i   ,
 
     // DMAWR data channel
     input  logic                         dma_wrdata_valid_i,
@@ -166,10 +167,10 @@ module avmm_dma_engine #(
         case (state)
             IDLE    : begin
                 if (dma_task_valid_i && dma_task_ready_o) begin
-                    if (dma_task_write_i && dma_wrdata_count_i >= ((dma_task_burst_i > W_BURST_COMPARATOR) ? W_BURST_COMPARATOR : dma_task_burst_i)) begin
+                    if (dma_task_write_i && dma_wrdata_count_i >= dma_task_init_i) begin
                         state_next = WRITE;
                     end
-                    else if (!dma_task_write_i && dma_rddata_free_i >= ((dma_task_burst_i > R_BURST_COMPARATOR) ? R_BURST_COMPARATOR : dma_task_burst_i)) begin
+                    else if (!dma_task_write_i && dma_rddata_free_i >= dma_task_init_i) begin
                         state_next = READ;
                     end
                     else begin
@@ -241,10 +242,10 @@ module avmm_dma_engine #(
         case (state)
             IDLE    : begin
                 if (dma_task_valid_i) begin
-                    if (dma_task_write_i && dma_wrdata_count_i >= ((dma_task_burst_i > W_BURST_COMPARATOR) ? W_BURST_COMPARATOR : dma_task_burst_i)) begin
+                    if (dma_task_write_i && dma_wrdata_count_i >= dma_task_init_i) begin
                         dma_task_ready_o = '1;
                     end
-                    else if (!dma_task_write_i && dma_rddata_free_i >= ((dma_task_burst_i > R_BURST_COMPARATOR) ? R_BURST_COMPARATOR : dma_task_burst_i)) begin
+                    else if (!dma_task_write_i && dma_rddata_free_i >= dma_task_init_i) begin
                         dma_task_ready_o = '1;
                     end
                     else begin
@@ -264,11 +265,11 @@ module avmm_dma_engine #(
                     dma_descriptor_next.bursts_left = dma_task_burst_i;
                     if (!dma_task_write_i) begin
                         dma_descriptor_next.reads_left = dma_task_burst_i;
-                        dma_descriptor_next.curr_burst = (dma_task_burst_i > R_BURST_COMPARATOR) ? R_BURST_COMPARATOR : dma_task_burst_i;
+                        dma_descriptor_next.curr_burst = dma_task_init_i;
                     end
                     else begin
                         dma_descriptor_next.reads_left = '0;
-                        dma_descriptor_next.curr_burst = (dma_task_burst_i > W_BURST_COMPARATOR) ? W_BURST_COMPARATOR : dma_task_burst_i;
+                        dma_descriptor_next.curr_burst = dma_task_init_i;
                     end
                 end
             end

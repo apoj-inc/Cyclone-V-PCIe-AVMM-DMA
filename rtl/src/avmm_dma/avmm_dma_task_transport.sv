@@ -1,10 +1,14 @@
 module avmm_dma_task_transport #(
-    parameter DMA_CHANNEL_COUNT = 16,
+    parameter     DMA_CHANNEL_COUNT                     = 16         ,
     
-    parameter DMA_BYTES_WIDTH   = 22,
-    parameter DMA_OFFFSET_WIDTH = 22,
+    parameter     DMA_BYTES_WIDTH                       = 22         ,
+    parameter     DMA_OFFFSET_WIDTH                     = 22         ,
 
-    parameter DMA_TQ_DEPTH      = 16,
+    parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
+    parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
+    parameter     DMA_TQ_DEPTH                          = 16         ,
+
+    parameter     TX_BURST_WIDTH                        = 6          ,
 
     parameter DMA_TQ_ADDR_WIDTH       = $clog2(DMA_TQ_DEPTH)                                  ,
     parameter DMA_BURST_WIDTH         = DMA_BYTES_WIDTH - 4                                   ,
@@ -27,7 +31,8 @@ module avmm_dma_task_transport #(
     input  logic [DMA_CHANNEL_COUNT-1:0]       dma_task_ready_i                      ,
     output logic [DMA_BURST_WIDTH-1:0]         dma_task_burst_o   [DMA_CHANNEL_COUNT],
     output logic [DMA_OFFFSET_WIDTH-1:0]       dma_task_offset_o  [DMA_CHANNEL_COUNT],
-    output logic [DMA_CHANNEL_COUNT-1:0]       dma_task_write_o                      
+    output logic [DMA_CHANNEL_COUNT-1:0]       dma_task_write_o                      ,
+    output logic [TX_BURST_WIDTH-1:0]          dma_task_init_o    [DMA_CHANNEL_COUNT]
 );
 
     logic dmawr_task_ready, dmard_task_ready;
@@ -44,12 +49,14 @@ module avmm_dma_task_transport #(
     logic [DMA_BURST_WIDTH-1:0]   dmawr_task_burst_demuxed  [DMA_CHANNEL_COUNT];
     logic [DMA_OFFFSET_WIDTH-1:0] dmawr_task_offset_demuxed [DMA_CHANNEL_COUNT];
     logic [DMA_CHANNEL_COUNT-1:0] dmawr_task_write_demuxed                     ;
+    logic [TX_BURST_WIDTH-1:0]    dmawr_task_init_demuxed   [DMA_CHANNEL_COUNT];
     
     logic [DMA_CHANNEL_COUNT-1:0] dmard_task_valid_demuxed                     ;
     logic [DMA_CHANNEL_COUNT-1:0] dmard_task_ready_demuxed                     ;
     logic [DMA_BURST_WIDTH-1:0]   dmard_task_burst_demuxed  [DMA_CHANNEL_COUNT];
     logic [DMA_OFFFSET_WIDTH-1:0] dmard_task_offset_demuxed [DMA_CHANNEL_COUNT];
     logic [DMA_CHANNEL_COUNT-1:0] dmard_task_write_demuxed                     ;
+    logic [TX_BURST_WIDTH-1:0]    dmard_task_init_demuxed   [DMA_CHANNEL_COUNT];
 
     assign dma_task_ready_o = dma_task_write_i ? dmawr_task_ready : dmard_task_ready;
 
@@ -73,9 +80,14 @@ module avmm_dma_task_transport #(
     );
 
     avmm_dma_task_demux #(
-       .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
-       .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
-       .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  )
+        .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+        .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
+        .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
+
+        .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
+        .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     ),
+
+        .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
     ) u_avmm_dmawr_task_demux (
         .clk                   (clk                       ),
         .rst_n                 (rst_n                     ),
@@ -91,7 +103,8 @@ module avmm_dma_task_transport #(
         .out_dma_task_ready_i  (dmawr_task_ready_demuxed  ),
         .out_dma_task_burst_o  (dmawr_task_burst_demuxed  ),
         .out_dma_task_offset_o (dmawr_task_offset_demuxed ),
-        .out_dma_task_write_o  (dmawr_task_write_demuxed  )
+        .out_dma_task_write_o  (dmawr_task_write_demuxed  ),
+        .out_dma_task_init_o   (dmawr_task_init_demuxed   )
     );
     
     // DMARD
@@ -114,9 +127,14 @@ module avmm_dma_task_transport #(
     );
 
     avmm_dma_task_demux #(
-       .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
-       .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
-       .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  )
+        .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+        .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
+        .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
+
+        .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
+        .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     ),
+
+        .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
     ) u_avmm_dmard_task_demux (
         .clk                   (clk                       ),
         .rst_n                 (rst_n                     ),
@@ -132,33 +150,34 @@ module avmm_dma_task_transport #(
         .out_dma_task_ready_i  (dmard_task_ready_demuxed  ),
         .out_dma_task_burst_o  (dmard_task_burst_demuxed  ),
         .out_dma_task_offset_o (dmard_task_offset_demuxed ),
-        .out_dma_task_write_o  (dmard_task_write_demuxed  )
+        .out_dma_task_write_o  (dmard_task_write_demuxed  ),
+        .out_dma_task_init_o   (dmard_task_init_demuxed   )
     );
 
     generate
         genvar i;
 
         for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : task_funnel_arb
-            logic [DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH + 1 - 1:0] data_wr [2];
+            logic [DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH + 1 + TX_BURST_WIDTH - 1:0] data_wr [2];
             logic [1:0] valid_wr, ready_wr;
 
-            logic [DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH + 1 - 1:0] data_rd;
+            logic [DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH + 1 + TX_BURST_WIDTH - 1:0] data_rd;
             logic valid_rd, ready_rd;
             
-            assign data_wr [0] = {dmawr_task_burst_demuxed[i], dmawr_task_offset_demuxed[i], dmawr_task_write_demuxed[i]};
+            assign data_wr [0] = {dmawr_task_burst_demuxed[i], dmawr_task_offset_demuxed[i], dmawr_task_write_demuxed[i], dmawr_task_init_demuxed[i]};
             assign valid_wr[0] = dmawr_task_valid_demuxed[i];
             assign dmawr_task_ready_demuxed[i] = ready_wr[0];
 
-            assign data_wr [1] = {dmard_task_burst_demuxed[i], dmard_task_offset_demuxed[i], dmard_task_write_demuxed[i]};
+            assign data_wr [1] = {dmard_task_burst_demuxed[i], dmard_task_offset_demuxed[i], dmard_task_write_demuxed[i], dmard_task_init_demuxed[i]};
             assign valid_wr[1] = dmard_task_valid_demuxed[i];
             assign dmard_task_ready_demuxed[i] = ready_wr[1];
 
-            assign {dma_task_burst_o[i], dma_task_offset_o[i], dma_task_write_o[i]} = data_rd ;
+            assign {dma_task_burst_o[i], dma_task_offset_o[i], dma_task_write_o[i], dma_task_init_o[i]} = data_rd ;
             assign dma_task_valid_o[i] = valid_rd;
             assign ready_rd = dma_task_ready_i[i];
             
             stream_arbiter #(
-                .DATA_WIDTH (DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH + 1),
+                .DATA_WIDTH (DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH + 1 + TX_BURST_WIDTH),
                 .INPUT_NUM  (2 ),
                 .AWAIT_HS   (0 )
             ) u_stream_arbiter (

@@ -116,18 +116,19 @@ module avmm_dma_top #(
     logic [31:0] user_msix_data  [MSIX_COUNT];
     logic [63:0] user_msix_addrs [MSIX_COUNT];
 
-    logic                               dma_task_valid_wr  , dma_task_valid_rd  ;
-    logic                               dma_task_ready_wr  , dma_task_ready_rd  ;
-    logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dma_task_channel_wr, dma_task_channel_rd;
-    logic [DMA_BURST_WIDTH-1:0]         dma_task_burst_wr  , dma_task_burst_rd  ;
-    logic [DMA_OFFFSET_WIDTH-1:0]       dma_task_offset_wr , dma_task_offset_rd ;
-    logic                               dma_task_write_wr  , dma_task_write_rd  ;
+    logic                               dma_task_valid_wr  ;
+    logic                               dma_task_ready_wr  ;
+    logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dma_task_channel_wr;
+    logic [DMA_BURST_WIDTH-1:0]         dma_task_burst_wr  ;
+    logic [DMA_OFFFSET_WIDTH-1:0]       dma_task_offset_wr ;
+    logic                               dma_task_write_wr  ;
 
     logic [DMA_CHANNEL_COUNT-1:0] dma_task_valid_demuxed                     ;
     logic [DMA_CHANNEL_COUNT-1:0] dma_task_ready_demuxed                     ;
     logic [DMA_BURST_WIDTH-1:0]   dma_task_burst_demuxed  [DMA_CHANNEL_COUNT];
     logic [DMA_OFFFSET_WIDTH-1:0] dma_task_offset_demuxed [DMA_CHANNEL_COUNT];
     logic [DMA_CHANNEL_COUNT-1:0] dma_task_write_demuxed                     ;
+    logic [TX_BURST_WIDTH-1:0]    dma_task_init_demuxed   [DMA_CHANNEL_COUNT];
 
     logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free, dmawr_task_free;
 
@@ -234,7 +235,11 @@ module avmm_dma_top #(
         .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
         .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
 
-        .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     )
+        .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
+        .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     ),
+        .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     ),
+
+        .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
     ) u_avmm_dma_task_transport (
         .clk                (clk                    ),
         .rst_n              (dma_resetn             ),
@@ -253,7 +258,8 @@ module avmm_dma_top #(
         .dma_task_ready_i   (dma_task_ready_demuxed ),
         .dma_task_burst_o   (dma_task_burst_demuxed ),
         .dma_task_offset_o  (dma_task_offset_demuxed),
-        .dma_task_write_o   (dma_task_write_demuxed )
+        .dma_task_write_o   (dma_task_write_demuxed ),
+        .dma_task_init_o    (dma_task_init_demuxed  )
     );
 
     avmm_dma_user_msix #(
@@ -313,6 +319,7 @@ module avmm_dma_top #(
                 .dma_task_burst_i   (dma_task_burst_demuxed [i]),
                 .dma_task_offset_i  (dma_task_offset_demuxed[i]),
                 .dma_task_write_i   (dma_task_write_demuxed [i]),
+                .dma_task_init_i    (dma_task_init_demuxed  [i]),
 
                 .dma_wrdata_valid_i (dma_wrdata_valid_i[i]     ),
                 .dma_wrdata_ready_o (dma_wrdata_ready_o[i]     ),
