@@ -7,11 +7,10 @@ module avmm_dma_echodevice #(
     parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{16{16  }},
     parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
     parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
-    parameter int DMA_TQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }},
+    parameter int DMA_TQ_DEPTH                          = 16         ,
 
     parameter int MAX_WQ_DEPTH                          = 1024       ,
     parameter int MAX_RQ_DEPTH                          = 1024       ,
-    parameter int MAX_TQ_DEPTH                          = 16         ,
     
     parameter     BAR_DATA_WIDTH                        = 128        ,
     parameter     BAR_ADDR_WIDTH                        = 12         ,
@@ -213,7 +212,6 @@ module avmm_dma_echodevice #(
 
         .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
         .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     ),
-        .MAX_TQ_DEPTH      (MAX_TQ_DEPTH     ),
 
         .BAR_DATA_WIDTH    (BAR_DATA_WIDTH   ),
         .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH   ),

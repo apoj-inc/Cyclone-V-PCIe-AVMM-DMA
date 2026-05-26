@@ -37,16 +37,15 @@ module avmm_dma_csr #(
     parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{16{16  }},
     parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
     parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
-    parameter int DMA_TQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }},
+    parameter     DMA_TQ_DEPTH                          = 16         ,
 
     parameter int MAX_WQ_DEPTH                          = 1024       ,
     parameter int MAX_RQ_DEPTH                          = 1024       ,
-    parameter int MAX_TQ_DEPTH                          = 16         ,
 
     parameter     BAR_DATA_BYTES                        = BAR_DATA_WIDTH / 8  ,
     parameter     DMA_WQ_ADDR_WIDTH                     = $clog2(MAX_WQ_DEPTH),
     parameter     DMA_RQ_ADDR_WIDTH                     = $clog2(MAX_RQ_DEPTH),
-    parameter     DMA_TQ_ADDR_WIDTH                     = $clog2(MAX_TQ_DEPTH)
+    parameter     DMA_TQ_ADDR_WIDTH                     = $clog2(DMA_TQ_DEPTH)
 ) (
     input  logic                       clk                                     ,
     input  logic                       rst_n                                   ,
@@ -61,11 +60,14 @@ module avmm_dma_csr #(
     output logic                       avmm_s_waitrequest                      ,
     input  logic [BAR_ADDR_WIDTH-1:0]  avmm_s_address                          ,
 
+    output logic                       dma_resetn_o                            ,
+
     output logic [63:0]                dma_addr_o           [DMA_CHANNEL_COUNT],
 
     input  logic [DMA_WQ_ADDR_WIDTH:0] wdata_fifo_count_i   [DMA_CHANNEL_COUNT],
     input  logic [DMA_RQ_ADDR_WIDTH:0] rdata_fifo_free_i    [DMA_CHANNEL_COUNT],
-    input  logic [DMA_TQ_ADDR_WIDTH:0] task_fifo_free_i                       
+    input  logic [DMA_TQ_ADDR_WIDTH:0] dmawr_task_free_i                       ,
+    input  logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free_i                       
 );
 
     typedef struct packed {
@@ -76,7 +78,6 @@ module avmm_dma_csr #(
         
         logic [31:0]                max_wr_len      ;
         logic [31:0]                max_rd_len      ;
-        logic [31:0]                tq_depth        ;
 
         logic [31:0]                wdata_fifo_count;
         logic [31:0]                rdata_fifo_free ;
@@ -89,7 +90,10 @@ module avmm_dma_csr #(
 
     // Global registers address decoding
     localparam INFO_REG        = 16'h0000;
-    localparam TASK_FIFO_FREE  = 16'h0004;
+    localparam DMAWR_TASK_FREE = 16'h0004;
+    localparam DMARD_TASK_FREE = 16'h0008;
+    localparam TQ_DEPTH        = 16'h000C;
+    localparam DMA_RESET       = 16'h0010;
 
     // Per structure address decoding
     localparam CAP_NEXT_PTR    = 16'h0000;
@@ -100,10 +104,9 @@ module avmm_dma_csr #(
     
     localparam MAX_WR_LEN      = 16'h0010;
     localparam MAX_RD_LEN      = 16'h0014;
-    localparam TQ_DEPTH        = 16'h0018;
     
-    localparam WDATA_CONUT     = 16'h001C;
-    localparam RDATA_FREE      = 16'h0020;
+    localparam WDATA_CONUT     = 16'h0018;
+    localparam RDATA_FREE      = 16'h001C;
 
 
     // AVMM translation and control
@@ -183,10 +186,31 @@ module avmm_dma_csr #(
         end
         else begin
             case (translated_addr)
-                INFO_REG       : csr_rdata_glob <= info_register;
-                TASK_FIFO_FREE : csr_rdata_glob <= task_fifo_free_i;
-                default        : csr_rdata_glob <= '0;
+                INFO_REG        : csr_rdata_glob <= info_register;
+                DMAWR_TASK_FREE : csr_rdata_glob <= dmawr_task_free_i;
+                DMARD_TASK_FREE : csr_rdata_glob <= dmard_task_free_i;
+                TQ_DEPTH        : csr_rdata_glob <= DMA_TQ_DEPTH;
+                DMA_RESET       : csr_rdata_glob <= dma_resetn_o;
+                default         : csr_rdata_glob <= '0;
             endcase
+        end
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            dma_resetn_o <= '0;
+        end
+        else begin
+            // Write singlepulse registers from hardware
+            dma_resetn_o <= '1;
+
+            // Write registers from interface
+            if (avmm_s_chipselect && avmm_s_write) begin
+                case (translated_addr)
+                    DMA_RESET: dma_resetn_o <= translated_wdata;
+                    default  :                                 ;
+                endcase
+            end
         end
     end
 
@@ -217,7 +241,6 @@ module avmm_dma_csr #(
                             DMA_W_BYTES_REG : csr_rdata_struct[i] <= dma_csr_struct.dma_word_bytes  ;
                             MAX_WR_LEN      : csr_rdata_struct[i] <= dma_csr_struct.max_wr_len      ;
                             MAX_RD_LEN      : csr_rdata_struct[i] <= dma_csr_struct.max_rd_len      ;
-                            TQ_DEPTH        : csr_rdata_struct[i] <= dma_csr_struct.tq_depth        ;
                             WDATA_CONUT     : csr_rdata_struct[i] <= dma_csr_struct.wdata_fifo_count;
                             RDATA_FREE      : csr_rdata_struct[i] <= dma_csr_struct.rdata_fifo_free ;
                             default         : csr_rdata_struct[i] <= '0                             ;
@@ -235,7 +258,6 @@ module avmm_dma_csr #(
             assign dma_csr_struct.dma_word_bytes = DMA_WORD_BYTES[i]                                                   ;
             assign dma_csr_struct.max_wr_len     = DMA_WQ_DEPTH[i] * DMA_WORD_BYTES[i]                                 ;
             assign dma_csr_struct.max_rd_len     = DMA_RQ_DEPTH[i] * DMA_WORD_BYTES[i]                                 ;
-            assign dma_csr_struct.tq_depth       = DMA_TQ_DEPTH[i]                                                     ;
 
             always_ff @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
@@ -245,7 +267,7 @@ module avmm_dma_csr #(
                 end
                 else begin
                     // Write registers from interface
-                    if (struct_addr_enable && avmm_s_write) begin
+                    if (struct_addr_enable && avmm_s_chipselect && avmm_s_write) begin
                         case (translated_addr[DMA_STRUCT_ADDR_WIDTH-1:0])
                             CAP_NEXT_PTR    : /*dma_csr_struct.cap_next_ptr     <= translated_wdata*/ ; // Read-only
                             DMA_ADDR_LO     :   dma_csr_struct.dma_addr[31:0]   <= translated_wdata   ;
@@ -253,7 +275,6 @@ module avmm_dma_csr #(
                             DMA_W_BYTES_REG : /*dma_csr_struct.dma_word_bytes   <= translated_wdata*/ ; // Read-only
                             MAX_WR_LEN      : /*dma_csr_struct.max_wr_len       <= translated_wdata*/ ; // Read-only
                             MAX_RD_LEN      : /*dma_csr_struct.max_rd_len       <= translated_wdata*/ ; // Read-only
-                            TQ_DEPTH        : /*dma_csr_struct.tq_depth         <= translated_wdata*/ ; // Read-only
                             WDATA_CONUT     : /*dma_csr_struct.wdata_fifo_count <= translated_wdata*/ ; // Read-only
                             RDATA_FREE      : /*dma_csr_struct.rdata_fifo_free  <= translated_wdata*/ ; // Read-only
                             default         :                                                         ;

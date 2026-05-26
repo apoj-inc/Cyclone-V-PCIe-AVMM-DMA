@@ -9,11 +9,10 @@ parameter     DMA_OFFFSET_WIDTH                     = 22         ;
 parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{16{16  }};
 parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }};
 parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }};
-parameter int DMA_TQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }};
+parameter     DMA_TQ_DEPTH                          = 16         ;
 
 parameter int MAX_WQ_DEPTH                          = 16         ;
 parameter int MAX_RQ_DEPTH                          = 16         ;
-parameter int MAX_TQ_DEPTH                          = 16         ;
 
 parameter     BAR_DATA_WIDTH                        = 128        ;
 parameter     BAR_ADDR_WIDTH                        = 12         ;
@@ -27,7 +26,7 @@ parameter BAR_DATA_BYTES          = BAR_DATA_WIDTH / 8                      ;
 parameter TX_DATA_BYTES           = TX_DATA_WIDTH / 8                       ;
 parameter DMA_WQ_ADDR_WIDTH       = $clog2(MAX_WQ_DEPTH)                    ;
 parameter DMA_RQ_ADDR_WIDTH       = $clog2(MAX_RQ_DEPTH)                    ;
-parameter DMA_TQ_ADDR_WIDTH       = $clog2(MAX_TQ_DEPTH)                    ;
+parameter DMA_TQ_ADDR_WIDTH       = $clog2(DMA_TQ_DEPTH)                    ;
 parameter PBA_COUNT               = MSIX_COUNT / 64 + (MSIX_COUNT % 64 != 0);
 parameter DMA_BURST_WIDTH         = DMA_BYTES_WIDTH - 4                     ;
 parameter DMA_CHANNEL_COUNT_WIDTH = $clog2(DMA_CHANNEL_COUNT)               ;
@@ -320,7 +319,6 @@ avmm_dma_top #(
 
     .MAX_WQ_DEPTH      (MAX_WQ_DEPTH      ),
     .MAX_RQ_DEPTH      (MAX_RQ_DEPTH      ),
-    .MAX_TQ_DEPTH      (MAX_TQ_DEPTH      ),
 
     .BAR_DATA_WIDTH    (BAR_DATA_WIDTH    ),
     .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH    ),
@@ -531,16 +529,6 @@ initial begin
         // Short operations
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
             dec_s_chipselect = '1;
-            dec_s_byteenable = 'h00FF;
-            dec_s_read       = '0;
-            dec_s_write      = '1;
-            dec_s_writedata  = ((22'(16*16)) << 32) | 22'('h0);
-            dec_s_address    = i << 4;
-            @(posedge clk);
-            while (dec_s_waitrequest) begin
-                @(posedge clk);
-            end
-            dec_s_chipselect = '1;
             dec_s_byteenable = 'hFF00;
             dec_s_read       = '0;
             dec_s_write      = '1;
@@ -550,24 +538,34 @@ initial begin
             while (dec_s_waitrequest) begin
                 @(posedge clk);
             end
-        end
-        // Long operations
-        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
             dec_s_chipselect = '1;
             dec_s_byteenable = 'h00FF;
             dec_s_read       = '0;
             dec_s_write      = '1;
-            dec_s_writedata  = ((22'(128*16)) << 32) | 22'('h0);
+            dec_s_writedata  = ((22'(16*16)) << 32) | 22'('h0);
+            dec_s_address    = i << 4;
+            @(posedge clk);
+            while (dec_s_waitrequest) begin
+                @(posedge clk);
+            end
+        end
+        // Long operations
+        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+            dec_s_chipselect = '1;
+            dec_s_byteenable = 'hFF00;
+            dec_s_read       = '0;
+            dec_s_write      = '1;
+            dec_s_writedata  = (((22'(128*16)) << 32) | 22'('h100)) << 64;
             dec_s_address    = i << 4;
             @(posedge clk);
             while (dec_s_waitrequest) begin
                 @(posedge clk);
             end
             dec_s_chipselect = '1;
-            dec_s_byteenable = 'hFF00;
+            dec_s_byteenable = 'h00FF;
             dec_s_read       = '0;
             dec_s_write      = '1;
-            dec_s_writedata  = (((22'(128*16)) << 32) | 22'('h100)) << 64;
+            dec_s_writedata  = ((22'(128*16)) << 32) | 22'('h0);
             dec_s_address    = i << 4;
             @(posedge clk);
             while (dec_s_waitrequest) begin

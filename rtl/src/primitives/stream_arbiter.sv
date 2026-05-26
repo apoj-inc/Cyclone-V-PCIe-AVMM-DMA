@@ -1,6 +1,7 @@
 module stream_arbiter #(
     parameter DATA_WIDTH = 32,
     parameter INPUT_NUM  = 2 ,
+    parameter AWAIT_HS   = 1 ,
 
     parameter ADDR_WIDTH = INPUT_NUM == 1 ? 1 : $clog2(INPUT_NUM)
 ) (
@@ -31,7 +32,12 @@ module stream_arbiter #(
             current_grant <= 0;
         end
         else begin
-            if (ready_i || !valid_i[current_grant]) begin
+            if (AWAIT_HS) begin
+                if (ready_i || !valid_i[current_grant]) begin
+                    current_grant <= next_grant;
+                end
+            end
+            else begin
                 current_grant <= next_grant;
             end
         end

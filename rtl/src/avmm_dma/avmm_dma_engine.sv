@@ -166,10 +166,10 @@ module avmm_dma_engine #(
         case (state)
             IDLE    : begin
                 if (dma_task_valid_i && dma_task_ready_o) begin
-                    if (dma_task_write_i) begin
+                    if (dma_task_write_i && dma_wrdata_count_i >= ((dma_task_burst_i > W_BURST_COMPARATOR) ? W_BURST_COMPARATOR : dma_task_burst_i)) begin
                         state_next = WRITE;
                     end
-                    else if (!dma_task_write_i) begin
+                    else if (!dma_task_write_i && dma_rddata_free_i >= ((dma_task_burst_i > R_BURST_COMPARATOR) ? R_BURST_COMPARATOR : dma_task_burst_i)) begin
                         state_next = READ;
                     end
                     else begin
@@ -241,7 +241,15 @@ module avmm_dma_engine #(
         case (state)
             IDLE    : begin
                 if (dma_task_valid_i) begin
-                    dma_task_ready_o = '1;
+                    if (dma_task_write_i && dma_wrdata_count_i >= ((dma_task_burst_i > W_BURST_COMPARATOR) ? W_BURST_COMPARATOR : dma_task_burst_i)) begin
+                        dma_task_ready_o = '1;
+                    end
+                    else if (!dma_task_write_i && dma_rddata_free_i >= ((dma_task_burst_i > R_BURST_COMPARATOR) ? R_BURST_COMPARATOR : dma_task_burst_i)) begin
+                        dma_task_ready_o = '1;
+                    end
+                    else begin
+                        dma_task_ready_o = '0;
+                    end
                 end
                 else begin
                     dma_task_ready_o = '0;

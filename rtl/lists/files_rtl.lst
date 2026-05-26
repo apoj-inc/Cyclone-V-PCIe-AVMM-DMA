@@ -3,6 +3,7 @@ rtl/src/avmm_dma/avmm_dma_decoder.sv
 rtl/src/avmm_dma/avmm_dma_engine.sv
 rtl/src/avmm_dma/avmm_dma_msix_table.sv
 rtl/src/avmm_dma/avmm_dma_task_demux.sv
+rtl/src/avmm_dma/avmm_dma_task_transport.sv
 rtl/src/avmm_dma/avmm_dma_top.sv
 rtl/src/avmm_dma/avmm_dma_user_msix.sv
 rtl/src/avmm_dma/avmm_exporter.sv

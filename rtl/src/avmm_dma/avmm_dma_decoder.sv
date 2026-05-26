@@ -3,8 +3,8 @@
     ioread* from any address: returns 0
 
     Address format:
-    0xXX0 - DMA read
-    0xXX8 - DMA write
+    0xXX0 - DMA write
+    0xXX8 - DMA read
     0x00X - DMA channel 0 command
     0x01X - DMA channel 1 command
     ...

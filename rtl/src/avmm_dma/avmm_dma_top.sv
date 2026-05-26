@@ -7,11 +7,10 @@ module avmm_dma_top #(
     parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{16{16  }},
     parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
     parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}},
-    parameter int DMA_TQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }},
+    parameter     DMA_TQ_DEPTH                          = 16         ,
 
-    parameter int MAX_WQ_DEPTH                          = 1024       ,
-    parameter int MAX_RQ_DEPTH                          = 1024       ,
-    parameter int MAX_TQ_DEPTH                          = 16         ,
+    parameter     MAX_WQ_DEPTH                          = 1024       ,
+    parameter     MAX_RQ_DEPTH                          = 1024       ,
     
     parameter     BAR_DATA_WIDTH                        = 128        ,
     parameter     BAR_ADDR_WIDTH                        = 12         ,
@@ -25,7 +24,7 @@ module avmm_dma_top #(
     parameter TX_DATA_BYTES           = TX_DATA_WIDTH / 8                                     ,
     parameter DMA_WQ_ADDR_WIDTH       = $clog2(MAX_WQ_DEPTH)                                  ,
     parameter DMA_RQ_ADDR_WIDTH       = $clog2(MAX_RQ_DEPTH)                                  ,
-    parameter DMA_TQ_ADDR_WIDTH       = $clog2(MAX_TQ_DEPTH)                                  ,
+    parameter DMA_TQ_ADDR_WIDTH       = $clog2(DMA_TQ_DEPTH)                                  ,
     parameter PBA_COUNT               = MSIX_COUNT / 64 + (MSIX_COUNT % 64 != 0)              ,
     parameter DMA_BURST_WIDTH         = DMA_BYTES_WIDTH - 4                                   ,
     parameter DMA_CHANNEL_COUNT_WIDTH = DMA_CHANNEL_COUNT == 1 ? 1 : $clog2(DMA_CHANNEL_COUNT)
@@ -105,6 +104,8 @@ module avmm_dma_top #(
     output logic [TX_DATA_WIDTH-1:0]   dma_rddata_data_o          [DMA_CHANNEL_COUNT]
 );
 
+    logic dma_resetn;
+
     logic [63:0] dma_addr [DMA_CHANNEL_COUNT];
 
     logic [31:0] dma_msix_mask  [MSIX_COUNT];
@@ -128,7 +129,7 @@ module avmm_dma_top #(
     logic [DMA_OFFFSET_WIDTH-1:0] dma_task_offset_demuxed [DMA_CHANNEL_COUNT];
     logic [DMA_CHANNEL_COUNT-1:0] dma_task_write_demuxed                     ;
 
-    logic [DMA_TQ_ADDR_WIDTH:0] task_fifo_free;
+    logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free, dmawr_task_free;
 
     avmm_dma_csr #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
@@ -142,8 +143,7 @@ module avmm_dma_top #(
         .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     ),
 
         .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
-        .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     ),
-        .MAX_TQ_DEPTH      (MAX_TQ_DEPTH     )
+        .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     )
     ) u_avmm_dma_csr (
         .clk                  (clk                 ),
         .rst_n                (rst_n               ),
@@ -158,11 +158,14 @@ module avmm_dma_top #(
         .avmm_s_waitrequest   (csr_s_waitrequest   ),
         .avmm_s_address       (csr_s_address       ),
 
+        .dma_resetn_o         (dma_resetn          ),
+
         .dma_addr_o           (dma_addr            ),
 
         .wdata_fifo_count_i   (dma_wrdata_count_i  ),
         .rdata_fifo_free_i    (dma_rddata_free_i   ),
-        .task_fifo_free_i     (task_fifo_free      )
+        .dmawr_task_free_i    (dmawr_task_free     ),
+        .dmard_task_free_i    (dmard_task_free     )
     );
 
     avmm_dma_msix_table #(
@@ -205,7 +208,7 @@ module avmm_dma_top #(
         .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ) 
     ) u_avmm_dma_decoder (
         .clk                  (clk                 ),
-        .rst_n                (rst_n               ),
+        .rst_n                (dma_resetn          ),
 
         .avmm_s_chipselect    (dec_s_chipselect    ),
         .avmm_s_byteenable    (dec_s_byteenable    ),
@@ -225,44 +228,32 @@ module avmm_dma_top #(
         .dma_task_write_o     (dma_task_write_wr   )
     );
 
-    stream_fifo #(
-        .DATA_WIDTH (1 + DMA_CHANNEL_COUNT_WIDTH + DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH),
-        .FIFO_DEPTH (MAX_TQ_DEPTH)
-    ) u_stream_fifo_tasks (
-       .ACLK    (clk                                                                            ),
-       .ARESETn (rst_n                                                                          ),
+    avmm_dma_task_transport #(
+        .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
 
-       .data_i  ({dma_task_write_wr, dma_task_channel_wr, dma_task_burst_wr, dma_task_offset_wr}),
-       .valid_i (dma_task_valid_wr                                                              ),
-       .ready_o (dma_task_ready_wr                                                              ),
-       .free_o  (task_fifo_free                                                                 ),
+        .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
+        .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
 
-       .data_o  ({dma_task_write_rd, dma_task_channel_rd, dma_task_burst_rd, dma_task_offset_rd}),
-       .valid_o (dma_task_valid_rd                                                              ),
-       .ready_i (dma_task_ready_rd                                                              ),
-       .count_o (                                                                               ) // NC
-    );
+        .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     )
+    ) u_avmm_dma_task_transport (
+        .clk                (clk                    ),
+        .rst_n              (dma_resetn             ),
 
-    avmm_dma_task_demux #(
-       .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
-       .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
-       .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  )
-    ) u_avmm_dma_task_demux (
-        .clk                   (clk                     ),
-        .rst_n                 (rst_n                   ),
+        .dma_task_valid_i   (dma_task_valid_wr      ),
+        .dma_task_ready_o   (dma_task_ready_wr      ),
+        .dma_task_channel_i (dma_task_channel_wr    ),
+        .dma_task_burst_i   (dma_task_burst_wr      ),
+        .dma_task_offset_i  (dma_task_offset_wr     ),
+        .dma_task_write_i   (dma_task_write_wr      ),
 
-        .in_dma_task_valid_i   (dma_task_valid_rd       ),
-        .in_dma_task_ready_o   (dma_task_ready_rd       ),
-        .in_dma_task_channel_i (dma_task_channel_rd     ),
-        .in_dma_task_burst_i   (dma_task_burst_rd       ),
-        .in_dma_task_offset_i  (dma_task_offset_rd      ),
-        .in_dma_task_write_i   (dma_task_write_rd       ),
+        .dmawr_task_free_o  (dmawr_task_free        ),
+        .dmard_task_free_o  (dmard_task_free        ),
 
-        .out_dma_task_valid_o  (dma_task_valid_demuxed  ),
-        .out_dma_task_ready_i  (dma_task_ready_demuxed  ),
-        .out_dma_task_burst_o  (dma_task_burst_demuxed  ),
-        .out_dma_task_offset_o (dma_task_offset_demuxed ),
-        .out_dma_task_write_o  (dma_task_write_demuxed  )
+        .dma_task_valid_o   (dma_task_valid_demuxed ),
+        .dma_task_ready_i   (dma_task_ready_demuxed ),
+        .dma_task_burst_o   (dma_task_burst_demuxed ),
+        .dma_task_offset_o  (dma_task_offset_demuxed),
+        .dma_task_write_o   (dma_task_write_demuxed )
     );
 
     avmm_dma_user_msix #(
@@ -273,7 +264,7 @@ module avmm_dma_top #(
         .TX_BURST_WIDTH  (TX_BURST_WIDTH )
     ) u_avmm_dma_user_msix (
         .clk               (clk                      ),
-        .rst_n             (rst_n                    ),
+        .rst_n             (dma_resetn               ),
 
         .irq_i             (user_irq_i               ),
 
@@ -309,7 +300,7 @@ module avmm_dma_top #(
                 .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
             ) u_avmm_dma_engine (
                 .clk                (clk                       ),
-                .rst_n              (rst_n                     ),
+                .rst_n              (dma_resetn                ),
 
                 .msix_mask_i        (dma_msix_mask[i]          ),
                 .msix_data_i        (dma_msix_data[i]          ),
