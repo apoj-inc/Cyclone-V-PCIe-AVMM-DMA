@@ -817,6 +817,6 @@ set_connection_parameter_value user_msi.avmm_m/pcie_cv_hip_avmm_0.Txs defaultCon
 set_interconnect_requirement {$system} {qsys_mm.clockCrossingAdapter} {HANDSHAKE}
 set_interconnect_requirement {$system} {qsys_mm.enableEccProtection} {FALSE}
 set_interconnect_requirement {$system} {qsys_mm.insertDefaultSlave} {FALSE}
-set_interconnect_requirement {$system} {qsys_mm.maxAdditionalLatency} {4}
+set_interconnect_requirement {$system} {qsys_mm.maxAdditionalLatency} {3}
 
 save_system {my_pcie.qsys}
