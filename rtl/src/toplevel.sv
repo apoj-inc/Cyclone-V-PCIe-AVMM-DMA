@@ -109,26 +109,25 @@ assign FAN_CTRL = 1;
 
 
 
-parameter     DMA_CHANNEL_COUNT                     = 16         ;
+parameter     DMA_CHANNEL_COUNT                     = 8         ;
 
-parameter     DMA_BYTES_WIDTH                       = 22         ;
-parameter     DMA_OFFFSET_WIDTH                     = 22         ;
+parameter     DMA_BYTES_WIDTH                       = 22        ;
+parameter     DMA_OFFFSET_WIDTH                     = 22        ;
 
-parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{16{16  }};
-parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}};
-parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}};
-parameter int DMA_TQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }};
+parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{8 {16 }};
+parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {128}};
+parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {128}};
+parameter int DMA_TQ_DEPTH                          = 16        ;
 
-parameter int MAX_WQ_DEPTH                          = 1024       ;
-parameter int MAX_RQ_DEPTH                          = 1024       ;
-parameter int MAX_TQ_DEPTH                          = 16         ;
+parameter int MAX_WQ_DEPTH                          = 128       ;
+parameter int MAX_RQ_DEPTH                          = 128       ;
 
-parameter     BAR_DATA_WIDTH                        = 128        ;
-parameter     BAR_ADDR_WIDTH                        = 12         ;
+parameter     BAR_DATA_WIDTH                        = 128       ;
+parameter     BAR_ADDR_WIDTH                        = 12        ;
 
-parameter     TX_DATA_WIDTH                         = 128        ;
-parameter     TX_ADDR_WIDTH                         = 64         ;
-parameter     TX_BURST_WIDTH                        = 6          ;
+parameter     TX_DATA_WIDTH                         = 128       ;
+parameter     TX_ADDR_WIDTH                         = 64        ;
+parameter     TX_BURST_WIDTH                        = 6         ;
 
 logic           pll_50mhz_clk                   ;
 
@@ -245,7 +244,6 @@ avmm_dma_echodevice #(
 
     .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
     .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     ),
-    .MAX_TQ_DEPTH      (MAX_TQ_DEPTH     ),
 
     .BAR_DATA_WIDTH    (BAR_DATA_WIDTH   ),
     .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH   ),
@@ -253,7 +251,7 @@ avmm_dma_echodevice #(
     .TX_DATA_WIDTH     (TX_DATA_WIDTH    ),
     .TX_ADDR_WIDTH     (TX_ADDR_WIDTH    ),
     .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
-) (
+) u_avmm_dma_echodevice (
     .clk                       (core_clk_clk                                        ),
     .rst_n                     (core_reset_reset_n                                  ),
 

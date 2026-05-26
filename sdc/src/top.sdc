@@ -32,5 +32,6 @@ set_false_path -to   [get_ports {LED[*]}]
 
 set_false_path -from {clock_50_rstn_rr}
 set_false_path -from {clock_125_rstn_rr}
+set_false_path -from [get_cells {*u_avmm_dma_top|u_avmm_dma_csr|dma_resetn_o}]
 set_false_path -from [get_clocks {*arriav_hd_altpe2_hip_top|coreclkout}] -to [get_clocks pll_50mhz]
 set_false_path -from [get_clocks pll_50mhz] -to [get_clocks {*arriav_hd_altpe2_hip_top|coreclkout}]

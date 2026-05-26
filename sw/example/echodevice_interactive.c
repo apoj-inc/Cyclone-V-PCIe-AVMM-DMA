@@ -50,6 +50,15 @@ int main (int argc, char **argv) {
 
     printf("You entered %s\n", input_str);
 
+    printf("Resetting the DMA controller...\n");
+    int csr_fd = open("/dev/hdlnocgen_c5p_dma_csr", O_RDWR);
+    if (csr_fd < 0) {
+        return csr_fd;
+    }
+    uint32_t writedata = 0;
+    pwrite(csr_fd, &writedata, 4, (off_t)0xC);
+    printf("DMA controller is reset\n");
+
     printf("Writing to DMA channel %d... ", channel);
     write(dma_fd, input_str, sizeof(input_str));
     printf("Done\n");
@@ -59,5 +68,15 @@ int main (int argc, char **argv) {
 
     printf("DMA says: %s\n", dma_read);
 
+    // Trashing DMA channels
+    /*
+    printf("Trashing DMA task queue...\n");
+    for (int i = 0; i < 8; i++) {
+        read(dma_fd, dma_read, sizeof(dma_read));
+    }
+    printf("Trashing DMA task queue trashed\n");
+    */
+
+    close(csr_fd);
     close(dma_fd);
 }

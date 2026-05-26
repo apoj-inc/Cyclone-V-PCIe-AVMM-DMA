@@ -9,9 +9,13 @@
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/wait.h>
+#include <asm/param.h> 
 
 #define DRIVER_NAME "hdlnocgen_c5p_driver"
 #define DMA_BUFFER_SIZE 4194304
+
+DECLARE_WAIT_QUEUE_HEAD(dma_wq);
 
 //Device globs
 uint64_t b0_start, b0_size;
@@ -75,6 +79,19 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
 
         return retval;
     }
+    else if (channel == dma_channel_count+2) {
+        int retval = len - 4;
+        if (retval < 0) {
+            return retval;
+        }
+        if ((uint64_t)*off > 0xC) {
+            return -EINVAL;
+        }
+        uint32_t read_value = ioread32(bar2_ptr+0x0000+*off);
+        retval += copy_to_user(user_buf, &read_value, 4);
+
+        return retval;
+    }
 
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read request to channel %u\n", channel);
 
@@ -86,13 +103,8 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
     iowrite64((((uint64_t)len) << 32) | 0, bar2_ptr + 0x1000 + channel*0x10);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d command sent\n", channel);
 
-    for (int i = 0; i < 1000000; i++) {
-        if (dma_irq_flags[channel]) {
-            break;
-        }
-        fsleep(1);
-    }
-    if (!dma_irq_flags[channel]) {
+    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_flags[channel] == 1, HZ*2);
+    if (!jiffies) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d timeout\n", channel);
         return -1;
     }
@@ -135,6 +147,20 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
 
         return retval;
     }
+    else if (channel == dma_channel_count+2) {
+        int retval = len - 4;
+        if (retval < 0) {
+            return retval;
+        }
+        if ((uint64_t)*off > 0xC) {
+            return -EINVAL;
+        }
+        uint32_t write_value;
+        retval += copy_from_user(&write_value, user_buf, 4);
+        iowrite32(write_value, bar2_ptr+0x0000+*off);
+
+        return retval;
+    }
 
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write request to channel %u\n", channel);
 
@@ -153,13 +179,8 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
     iowrite64((((uint64_t)(len-not_copied)) << 32) | 0, bar2_ptr + 0x1008 + channel*0x10);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d command sent\n", channel);
 
-    for (int i = 0; i < 1000000; i++) {
-        if (dma_irq_flags[channel]) {
-            break;
-        }
-        fsleep(1);
-    }
-    if (!dma_irq_flags[channel]) {
+    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_flags[channel] == 1, HZ*2);
+    if (!jiffies) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d timeout\n", channel);
         return -1;
     }
@@ -205,6 +226,7 @@ static irqreturn_t dma_finish(int irq, void *dev) {
             break;
         }
     }
+    wake_up_all(&dma_wq);
     return IRQ_HANDLED;
 }
 
@@ -397,12 +419,21 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     }
     printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_c5p_env_csr\n");
 
+    if (!device_create(driver_class, &(pdev->dev), driver_dev_nr+dma_channel_count+2, NULL, "hdlnocgen_c5p_dma_csr")) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_c5p_dma_csr\n");
+        err = -ENOMEM;
+        goto destroy_env_csr_file;
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_c5p_dma_csr\n");
+
     // Set PCIe as master
     pci_set_master(pdev);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Bus mastered by PCIe device\n");
 
     return 0;
 
+destroy_env_csr_file:
+    device_destroy(driver_class, driver_dev_nr+dma_channel_count+1);
 destroy_user_irq_file:
     device_destroy(driver_class, driver_dev_nr+dma_channel_count);
 destroy_device_file:
@@ -451,6 +482,9 @@ pci_disable:
 static void hdlnocgen_dma_remove(struct pci_dev *pdev) {
     pci_clear_master(pdev);
     printk(KERN_INFO "hdlnocgen_c5p_driver: PCIe device unmastered\n");
+
+    device_destroy(driver_class, driver_dev_nr+dma_channel_count+2);
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted file hdlnocgen_c5p_dma_csr\n");
 
     device_destroy(driver_class, driver_dev_nr+dma_channel_count+1);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted file hdlnocgen_c5p_env_csr\n");
@@ -526,6 +560,6 @@ static void __exit cleanup_hdlnocgen_dma_driver (void) {
 module_init(init_hdlnocgen_dma_driver);
 module_exit(cleanup_hdlnocgen_dma_driver);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Serkhan");
-MODULE_DESCRIPTION("DMA altera crap");
+MODULE_LICENSE("Dual MIT/GPL");
+MODULE_AUTHOR("stargazer");
+MODULE_DESCRIPTION("A PCIe DMA driver for a controller on a Terasic openVINO Starter kit devboard's FPGA");

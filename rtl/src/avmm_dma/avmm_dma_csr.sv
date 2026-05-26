@@ -92,8 +92,7 @@ module avmm_dma_csr #(
     localparam INFO_REG        = 16'h0000;
     localparam DMAWR_TASK_FREE = 16'h0004;
     localparam DMARD_TASK_FREE = 16'h0008;
-    localparam TQ_DEPTH        = 16'h000C;
-    localparam DMA_RESET       = 16'h0010;
+    localparam DMA_RESET       = 16'h000C;
 
     // Per structure address decoding
     localparam CAP_NEXT_PTR    = 16'h0000;
@@ -189,7 +188,6 @@ module avmm_dma_csr #(
                 INFO_REG        : csr_rdata_glob <= info_register;
                 DMAWR_TASK_FREE : csr_rdata_glob <= dmawr_task_free_i;
                 DMARD_TASK_FREE : csr_rdata_glob <= dmard_task_free_i;
-                TQ_DEPTH        : csr_rdata_glob <= DMA_TQ_DEPTH;
                 DMA_RESET       : csr_rdata_glob <= dma_resetn_o;
                 default         : csr_rdata_glob <= '0;
             endcase

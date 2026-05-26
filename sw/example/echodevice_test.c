@@ -9,7 +9,7 @@
 #include <time.h>
 
 #define ARRAY_SIZE (uint64_t)(1024*16/8)
-#define DMA_CHANNEL_COUNT 16
+#define DMA_CHANNEL_COUNT 8
 #define ITERATION_COUNT   (uint64_t)(10000)
 
 uint64_t kal[DMA_CHANNEL_COUNT][ARRAY_SIZE];
