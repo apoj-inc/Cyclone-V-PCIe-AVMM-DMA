@@ -11,4 +11,5 @@ rtl/src/primitives/stream_arbiter.sv
 rtl/src/primitives/stream_fifo.sv
 rtl/src/example/external_csr.sv
 rtl/src/example/avmm_dma_echodevice.sv
+rtl/src/example/avmm_dma_interchannel.sv
 rtl/src/toplevel.sv

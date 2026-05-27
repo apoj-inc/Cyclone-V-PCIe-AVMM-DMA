@@ -10,7 +10,6 @@
 
 #define ARRAY_SIZE (uint64_t)(1024*16/8)
 #define DMA_CHANNEL_COUNT 8
-#define ITERATION_COUNT   (uint64_t)(10000)
 
 uint64_t kal[DMA_CHANNEL_COUNT][ARRAY_SIZE];
 uint64_t checker[DMA_CHANNEL_COUNT][ARRAY_SIZE];
@@ -23,7 +22,13 @@ void *dma_test (void *index) {
     read(fd[index_int], checker[index_int], sizeof(checker[index_int]));
 }
 
-int main () {
+int main (int argc, char **argv) {
+    if (argc < 2) {
+        return -1;
+    }
+
+    int iteration_count = atoi(argv[1]);
+
     pthread_t threads[DMA_CHANNEL_COUNT];
 
     struct timespec start, stop;
@@ -60,7 +65,7 @@ int main () {
     }
     printf("All channels initialized data\n");
 
-    for (int iter = 0; iter < ITERATION_COUNT; iter++) {
+    for (int iter = 0; iter < iteration_count; iter++) {
 
         clock_gettime(CLOCK_MONOTONIC, &start);
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
@@ -71,24 +76,31 @@ int main () {
         }
         clock_gettime(CLOCK_MONOTONIC, &stop);
 
+        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+            for (int j = 0; j < ARRAY_SIZE; j++) {
+                if (kal[i][j] != checker[i][j]) {
+                    fail[i]++;
+                }
+            }
+        }
+
+        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+            for (int j = 0; j < ARRAY_SIZE; j++) {
+                checker[i][j] = 0;
+            }
+        }
+
         elapsed += (stop.tv_sec*1e9 + stop.tv_nsec) - (start.tv_sec*1e9 + start.tv_nsec);
     }
     printf("All channels read from dma\n");
 
-    for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-        for (int j = 0; j < ARRAY_SIZE; j++) {
-            if (kal[i][j] != checker[i][j]) {
-                fail[i]++;
-            }
-        }
-    }
     printf("Fail array: ");
     for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
         printf("%d ", fail[i]);
     }
     printf("\n");
 
-    uint64_t bitcount = ARRAY_SIZE*8*8*DMA_CHANNEL_COUNT*2*ITERATION_COUNT;
+    uint64_t bitcount = (sizeof(kal) + sizeof(checker))*8*iteration_count;
     printf("Speed: %lf Gbit/sec\n", bitcount/elapsed);
 
     printf("Checking external interrupts\n");
