@@ -108,6 +108,8 @@ module avmm_dma_interchannel #(
 
     logic [DMA_CHANNEL_COUNT-1:0] user_irq;
 
+    logic dma_resetn;
+
     generate
         genvar i;
 
@@ -126,7 +128,7 @@ module avmm_dma_interchannel #(
                 .FIFO_DEPTH (DMA_RQ_DEPTH[i])
             ) fifo_rd (
                 .ACLK    (clk  ),
-                .ARESETn (rst_n),
+                .ARESETn (dma_resetn),
 
                 .data_i  (dma_rddata_data [i]),
                 .valid_i (dma_rddata_valid[i]),
@@ -144,7 +146,7 @@ module avmm_dma_interchannel #(
                 .FIFO_DEPTH (1024)
             ) file (
                 .ACLK    (clk  ),
-                .ARESETn (rst_n),
+                .ARESETn (dma_resetn),
 
                 .data_i  (file_wr_data ),
                 .valid_i (file_wr_valid),
@@ -162,7 +164,7 @@ module avmm_dma_interchannel #(
                 .FIFO_DEPTH (DMA_WQ_DEPTH[i])
             ) fifo_wr (
                 .ACLK    (clk  ),
-                .ARESETn (rst_n),
+                .ARESETn (dma_resetn),
 
                 .data_i  (file_rd_data ),
                 .valid_i (file_rd_valid),
@@ -350,7 +352,9 @@ module avmm_dma_interchannel #(
         .dma_rddata_valid_o        (dma_rddata_valid         ),
         .dma_rddata_ready_i        (dma_rddata_ready         ),
         .dma_rddata_free_i         (dma_rddata_free          ),
-        .dma_rddata_data_o         (dma_rddata_data          )
+        .dma_rddata_data_o         (dma_rddata_data          ),
+
+        .dma_resetn_o              (dma_resetn               )
     );
     
 endmodule

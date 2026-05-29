@@ -101,7 +101,9 @@ module avmm_dma_top #(
     output logic                       dma_rddata_valid_o         [DMA_CHANNEL_COUNT],
     input  logic                       dma_rddata_ready_i         [DMA_CHANNEL_COUNT],
     input  logic [DMA_RQ_ADDR_WIDTH:0] dma_rddata_free_i          [DMA_CHANNEL_COUNT],
-    output logic [TX_DATA_WIDTH-1:0]   dma_rddata_data_o          [DMA_CHANNEL_COUNT]
+    output logic [TX_DATA_WIDTH-1:0]   dma_rddata_data_o          [DMA_CHANNEL_COUNT],
+
+    output logic                       dma_resetn_o                                  
 );
 
     logic dma_resetn;
@@ -131,6 +133,8 @@ module avmm_dma_top #(
     logic [TX_BURST_WIDTH-1:0]    dma_task_init_demuxed   [DMA_CHANNEL_COUNT];
 
     logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free, dmawr_task_free;
+
+    assign dma_resetn_o = dma_resetn;
 
     avmm_dma_csr #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
