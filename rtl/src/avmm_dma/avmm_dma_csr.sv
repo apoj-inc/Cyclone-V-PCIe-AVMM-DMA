@@ -47,31 +47,36 @@ module avmm_dma_csr #(
     parameter     DMA_RQ_ADDR_WIDTH                     = $clog2(MAX_RQ_DEPTH),
     parameter     DMA_TQ_ADDR_WIDTH                     = $clog2(DMA_TQ_DEPTH)
 ) (
-    input  logic                       clk                                     ,
-    input  logic                       rst_n                                   ,
+    input  logic                         clk                                     ,
+    input  logic                         rst_n                                   ,
 
-    input  logic                       avmm_s_chipselect                       ,
-    input  logic [BAR_DATA_BYTES-1:0]  avmm_s_byteenable                       ,
-    output logic [BAR_DATA_WIDTH-1:0]  avmm_s_readdata                         ,
-    input  logic [BAR_DATA_WIDTH-1:0]  avmm_s_writedata                        ,
-    input  logic                       avmm_s_read                             ,
-    input  logic                       avmm_s_write                            ,
-    output logic                       avmm_s_readdatavalid                    ,
-    output logic                       avmm_s_waitrequest                      ,
-    input  logic [BAR_ADDR_WIDTH-1:0]  avmm_s_address                          ,
+    input  logic                         avmm_s_chipselect                       ,
+    input  logic [BAR_DATA_BYTES-1:0]    avmm_s_byteenable                       ,
+    output logic [BAR_DATA_WIDTH-1:0]    avmm_s_readdata                         ,
+    input  logic [BAR_DATA_WIDTH-1:0]    avmm_s_writedata                        ,
+    input  logic                         avmm_s_read                             ,
+    input  logic                         avmm_s_write                            ,
+    output logic                         avmm_s_readdatavalid                    ,
+    output logic                         avmm_s_waitrequest                      ,
+    input  logic [BAR_ADDR_WIDTH-1:0]    avmm_s_address                          ,
 
-    output logic                       dma_resetn_o                            ,
+    output logic                         dma_resetn_o                            ,
 
-    output logic [63:0]                dma_addr_o           [DMA_CHANNEL_COUNT],
+    output logic [63:0]                  dma_addr_o           [DMA_CHANNEL_COUNT],
 
-    input  logic [DMA_WQ_ADDR_WIDTH:0] wdata_fifo_count_i   [DMA_CHANNEL_COUNT],
-    input  logic [DMA_RQ_ADDR_WIDTH:0] rdata_fifo_free_i    [DMA_CHANNEL_COUNT],
-    input  logic [DMA_TQ_ADDR_WIDTH:0] dmawr_task_free_i                       ,
-    input  logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free_i                       
+    input  logic [DMA_CHANNEL_COUNT-1:0] dma_rd_irq_i                            ,
+    input  logic [DMA_CHANNEL_COUNT-1:0] dma_wr_irq_i                            ,
+    output logic [DMA_CHANNEL_COUNT-1:0] dma_rd_irq_sts_o                        ,
+    output logic [DMA_CHANNEL_COUNT-1:0] dma_wr_irq_sts_o                        ,
+
+    input  logic [DMA_WQ_ADDR_WIDTH:0]   wdata_fifo_count_i   [DMA_CHANNEL_COUNT],
+    input  logic [DMA_RQ_ADDR_WIDTH:0]   rdata_fifo_free_i    [DMA_CHANNEL_COUNT],
+    input  logic [DMA_TQ_ADDR_WIDTH:0]   dmawr_task_free_i                       ,
+    input  logic [DMA_TQ_ADDR_WIDTH:0]   dmard_task_free_i                       
 );
 
     typedef struct packed {
-        logic [15:0]                cap_next_ptr    ;
+        logic [31:0]                cap_next_ptr    ;
 
         logic [63:0]                dma_addr        ;
         logic [31:0]                dma_word_bytes  ;
@@ -81,12 +86,17 @@ module avmm_dma_csr #(
 
         logic [31:0]                wdata_fifo_count;
         logic [31:0]                rdata_fifo_free ;
+
+        logic                       rd_irq_sts      ;
+        logic                       wr_irq_sts      ;
+        logic                       rd_irq_clr      ;
+        logic                       wr_irq_clr      ;
     } dma_csr_struct_t;
 
-    localparam DMA_STRUCT_BITS       = $bits(dma_csr_struct_t)                           ;
-    localparam DMA_STRUCT_BYTES      = DMA_STRUCT_BITS / 8 + ((DMA_STRUCT_BITS % 8) != 0);
-    localparam DMA_STRUCT_ADDR_WIDTH = $clog2(DMA_STRUCT_BYTES)                          ;
-    localparam DMA_STRUCT_SEL_WIDTH  = 16 - DMA_STRUCT_ADDR_WIDTH                        ;
+    localparam DMA_STRUCT_BITS       = $bits(dma_csr_struct_t)                                 ;
+    localparam DMA_STRUCT_BYTES      = (DMA_STRUCT_BITS / 32 + ((DMA_STRUCT_BITS % 32) != 0))*4;
+    localparam DMA_STRUCT_ADDR_WIDTH = $clog2(DMA_STRUCT_BYTES)                                ;
+    localparam DMA_STRUCT_SEL_WIDTH  = 16 - DMA_STRUCT_ADDR_WIDTH                              ;
 
     // Global registers address decoding
     localparam INFO_REG        = 16'h0000;
@@ -106,6 +116,8 @@ module avmm_dma_csr #(
     
     localparam WDATA_CONUT     = 16'h0018;
     localparam RDATA_FREE      = 16'h001C;
+    
+    localparam IRQ_INFO        = 16'h0020;
 
 
     // AVMM translation and control
@@ -241,6 +253,11 @@ module avmm_dma_csr #(
                             MAX_RD_LEN      : csr_rdata_struct[i] <= dma_csr_struct.max_rd_len      ;
                             WDATA_CONUT     : csr_rdata_struct[i] <= dma_csr_struct.wdata_fifo_count;
                             RDATA_FREE      : csr_rdata_struct[i] <= dma_csr_struct.rdata_fifo_free ;
+                            IRQ_INFO        : csr_rdata_struct[i] <=   {dma_csr_struct.rd_irq_sts,
+                                                                        dma_csr_struct.wr_irq_sts,
+                                                                        dma_csr_struct.rd_irq_clr,
+                                                                        dma_csr_struct.wr_irq_clr
+                                                                        }                           ;
                             default         : csr_rdata_struct[i] <= '0                             ;
                         endcase
                     end
@@ -257,13 +274,24 @@ module avmm_dma_csr #(
             assign dma_csr_struct.max_wr_len     = DMA_WQ_DEPTH[i] * DMA_WORD_BYTES[i]                                 ;
             assign dma_csr_struct.max_rd_len     = DMA_RQ_DEPTH[i] * DMA_WORD_BYTES[i]                                 ;
 
+            assign dma_rd_irq_sts_o[i] = dma_csr_struct.rd_irq_sts;
+            assign dma_wr_irq_sts_o[i] = dma_csr_struct.wr_irq_sts;
+
             always_ff @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
-                    dma_csr_struct.dma_addr         <= '0                              ;
-                    dma_csr_struct.wdata_fifo_count <= '0                              ;
-                    dma_csr_struct.rdata_fifo_free  <= '0                              ;
+                    dma_csr_struct.dma_addr         <= '0;
+                    dma_csr_struct.wdata_fifo_count <= '0;
+                    dma_csr_struct.rdata_fifo_free  <= '0;
+
+                    dma_csr_struct.rd_irq_sts       <= '0;
+                    dma_csr_struct.wr_irq_sts       <= '0;
+                    dma_csr_struct.rd_irq_clr       <= '0;
+                    dma_csr_struct.wr_irq_clr       <= '0;
                 end
                 else begin
+                    // Write singlepulse registers
+                    {dma_csr_struct.rd_irq_clr, dma_csr_struct.wr_irq_clr} <= '0;
+
                     // Write registers from interface
                     if (struct_addr_enable && avmm_s_chipselect && avmm_s_write) begin
                         case (translated_addr[DMA_STRUCT_ADDR_WIDTH-1:0])
@@ -275,6 +303,8 @@ module avmm_dma_csr #(
                             MAX_RD_LEN      : /*dma_csr_struct.max_rd_len       <= translated_wdata*/ ; // Read-only
                             WDATA_CONUT     : /*dma_csr_struct.wdata_fifo_count <= translated_wdata*/ ; // Read-only
                             RDATA_FREE      : /*dma_csr_struct.rdata_fifo_free  <= translated_wdata*/ ; // Read-only
+                            IRQ_INFO        :  {dma_csr_struct.rd_irq_clr,
+                                                dma_csr_struct.wr_irq_clr }     <= translated_wdata   ;
                             default         :                                                         ;
                         endcase
                     end
@@ -282,6 +312,8 @@ module avmm_dma_csr #(
                     // Write registers from hardware
                     dma_csr_struct.wdata_fifo_count <= wdata_fifo_count_i[i];
                     dma_csr_struct.rdata_fifo_free  <= rdata_fifo_free_i [i];
+                    dma_csr_struct.rd_irq_sts       <= (dma_csr_struct.rd_irq_sts | dma_rd_irq_i[i]) & ~dma_csr_struct.rd_irq_clr & dma_resetn_o;
+                    dma_csr_struct.wr_irq_sts       <= (dma_csr_struct.wr_irq_sts | dma_wr_irq_i[i]) & ~dma_csr_struct.wr_irq_clr & dma_resetn_o;
                 end
             end
         end

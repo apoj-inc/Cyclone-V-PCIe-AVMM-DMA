@@ -118,9 +118,9 @@ module avmm_dma_top #(
     logic [31:0] user_msix_data  [MSIX_COUNT];
     logic [63:0] user_msix_addrs [MSIX_COUNT];
     
-    logic [31:0] msix_mask  [MSIX_COUNT*2];
-    logic [31:0] msix_data  [MSIX_COUNT*2];
-    logic [63:0] msix_addrs [MSIX_COUNT*2];
+    logic [31:0] msix_mask  [MSIX_COUNT*3];
+    logic [31:0] msix_data  [MSIX_COUNT*3];
+    logic [63:0] msix_addrs [MSIX_COUNT*3];
 
     logic                               dma_task_valid_wr  ;
     logic                               dma_task_ready_wr  ;
@@ -138,10 +138,12 @@ module avmm_dma_top #(
 
     logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free, dmawr_task_free;
 
-    logic [MSIX_COUNT*2-1:0] irq_wires;
+    logic [MSIX_COUNT*3-1:0] irq_wires;
+    logic [MSIX_COUNT-1:0]   dma_rd_irq    , dma_wr_irq    ;
+    logic [MSIX_COUNT-1:0]   dma_rd_irq_sts, dma_wr_irq_sts;
 
     assign dma_resetn_o = dma_resetn;
-    assign irq_wires[MSIX_COUNT +: MSIX_COUNT] = user_irq_i;
+    assign irq_wires = {user_irq_i, dma_rd_irq_sts, dma_wr_irq_sts};
 
     avmm_dma_csr #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
@@ -173,6 +175,11 @@ module avmm_dma_top #(
         .dma_resetn_o         (dma_resetn          ),
 
         .dma_addr_o           (dma_addr            ),
+
+        .dma_rd_irq_i         (dma_rd_irq          ),
+        .dma_wr_irq_i         (dma_wr_irq          ),
+        .dma_rd_irq_sts_o     (dma_rd_irq_sts      ),
+        .dma_wr_irq_sts_o     (dma_wr_irq_sts      ),
 
         .wdata_fifo_count_i   (dma_wrdata_count_i  ),
         .rdata_fifo_free_i    (dma_rddata_free_i   ),
@@ -274,7 +281,7 @@ module avmm_dma_top #(
     );
 
     avmm_dma_dmic #(
-        .MSIX_COUNT     (MSIX_COUNT*2   ),
+        .MSIX_COUNT     (MSIX_COUNT*3   ),
 
         .TX_DATA_WIDTH  (TX_DATA_WIDTH  ),
         .TX_ADDR_WIDTH  (TX_ADDR_WIDTH  ),
@@ -306,16 +313,18 @@ module avmm_dma_top #(
 
         for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : dma_channels
             logic rd_irq, wr_irq;
-            
-            assign irq_wires[i] = rd_irq | wr_irq;
 
             assign msix_mask [i] = dma_msix_mask [i];
             assign msix_data [i] = dma_msix_data [i];
             assign msix_addrs[i] = dma_msix_addrs[i];
+            
+            assign msix_mask [i + DMA_CHANNEL_COUNT] = dma_msix_mask [i];
+            assign msix_data [i + DMA_CHANNEL_COUNT] = dma_msix_data [i];
+            assign msix_addrs[i + DMA_CHANNEL_COUNT] = dma_msix_addrs[i];
 
-            assign msix_mask [i + DMA_CHANNEL_COUNT] = user_msix_mask [i];
-            assign msix_data [i + DMA_CHANNEL_COUNT] = user_msix_data [i];
-            assign msix_addrs[i + DMA_CHANNEL_COUNT] = user_msix_addrs[i];
+            assign msix_mask [i + DMA_CHANNEL_COUNT*2] = user_msix_mask [i];
+            assign msix_data [i + DMA_CHANNEL_COUNT*2] = user_msix_data [i];
+            assign msix_addrs[i + DMA_CHANNEL_COUNT*2] = user_msix_addrs[i];
 
             avmm_dma_engine #(
                 .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
@@ -361,10 +370,10 @@ module avmm_dma_top #(
                 .tx_waitrequest     (tx_waitrequest  [i]       ),
                 .tx_address         (tx_address      [i]       ),
 
-                .rd_irq_o           (rd_irq                    ),
-                .wr_irq_o           (wr_irq                    ),
-                .rd_irq_stat_i      ('0                        ),
-                .wr_irq_stat_i      ('0                        )
+                .rd_irq_o           (dma_rd_irq    [i]         ),
+                .wr_irq_o           (dma_wr_irq    [i]         ),
+                .rd_irq_sts_i       (dma_rd_irq_sts[i]         ),
+                .wr_irq_sts_i       (dma_wr_irq_sts[i]         )
             );
         end
     endgenerate

@@ -63,8 +63,8 @@ module avmm_dma_engine #(
     // Between DMIC
     output logic                         rd_irq_o          ,
     output logic                         wr_irq_o          ,
-    input  logic                         rd_irq_stat_i     ,
-    input  logic                         wr_irq_stat_i     
+    input  logic                         rd_irq_sts_i      ,
+    input  logic                         wr_irq_sts_i      
 );
 
     /* Write logic */
@@ -211,7 +211,7 @@ module avmm_dma_engine #(
                 end
             end
             RD_IRQ  : begin
-                if (rd_irq_stat_i == '0) begin
+                if (rd_irq_sts_i == '0) begin
                     state_next = IDLE;
                 end
                 else begin
@@ -219,7 +219,7 @@ module avmm_dma_engine #(
                 end
             end
             WR_IRQ  : begin
-                if (wr_irq_stat_i == '0) begin
+                if (wr_irq_sts_i == '0) begin
                     state_next = IDLE;
                 end
                 else begin
@@ -372,10 +372,10 @@ module avmm_dma_engine #(
                 dma_descriptor_next.reads_left = dma_descriptor.reads_left - tx_readdatavalid;
             end
             RD_IRQ  : begin
-                rd_irq_next = ~rd_irq_stat_i;
+                rd_irq_next = ~rd_irq_sts_i;
             end
             WR_IRQ  : begin
-                wr_irq_next = ~wr_irq_stat_i;
+                wr_irq_next = ~wr_irq_sts_i;
             end
             default: begin
             end
