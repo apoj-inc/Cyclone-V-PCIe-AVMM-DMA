@@ -108,15 +108,15 @@ module toplevel(
 assign FAN_CTRL = 1;
 
 
-parameter     DMA_ECHODEVICE                        = 0         ;
-parameter     DMA_CHANNEL_COUNT                     = 8         ;
+parameter     DMA_ECHODEVICE                        = 1         ;
+parameter     DMA_CHANNEL_COUNT                     = 16        ;
 
 parameter     DMA_BYTES_WIDTH                       = 22        ;
 parameter     DMA_OFFFSET_WIDTH                     = 22        ;
 
-parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{8 {16 }};
-parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {128}};
-parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {128}};
+parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{16{16 }};
+parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{128}};
+parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{128}};
 parameter int DMA_TQ_DEPTH                          = 16        ;
 
 parameter int MAX_WQ_DEPTH                          = 128       ;

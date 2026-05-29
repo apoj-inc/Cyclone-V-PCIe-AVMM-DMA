@@ -25,11 +25,6 @@ module avmm_dma_engine #(
     input  logic                         clk               ,
     input  logic                         rst_n             ,
 
-    // MSIX table
-    input  logic [31:0]                  msix_mask_i       ,
-    input  logic [31:0]                  msix_data_i       ,
-    input  logic [63:0]                  msix_addr_i       ,
-
     // CSR
     input  logic [63:0]                  dma_addr_i        ,
 
@@ -63,7 +58,13 @@ module avmm_dma_engine #(
     output logic [TX_BURST_WIDTH-1:0]    tx_burstcount     ,
     input  logic                         tx_readdatavalid  ,
     input  logic                         tx_waitrequest    ,
-    output logic [TX_ADDR_WIDTH-1:0]     tx_address        
+    output logic [TX_ADDR_WIDTH-1:0]     tx_address        ,
+
+    // Between DMIC
+    output logic                         rd_irq_o          ,
+    output logic                         wr_irq_o          ,
+    input  logic                         rd_irq_stat_i     ,
+    input  logic                         wr_irq_stat_i     
 );
 
     /* Write logic */
@@ -72,8 +73,8 @@ module avmm_dma_engine #(
         IDLE    ,
         READ    ,
         WRITE   ,
-        GEN_MSI ,
-        WAIT_MSI
+        RD_IRQ  ,
+        WR_IRQ  
     } state_t;
 
     typedef struct packed {
@@ -106,8 +107,14 @@ module avmm_dma_engine #(
     logic [DMA_RQ_ADDR_WIDTH:0] dma_rddata_free_checker;
     logic                       wait_checker, wait_checker_next;
 
+    logic rd_irq, rd_irq_next;
+    logic wr_irq, wr_irq_next;
+
     assign dma_rddata_valid_o = dma_rddata_valid;
     assign dma_rddata_data_o  = dma_rddata_data ;
+    
+    assign rd_irq_o = rd_irq;
+    assign wr_irq_o = wr_irq;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -138,6 +145,9 @@ module avmm_dma_engine #(
             dma_rddata_data  <= '0;
 
             wait_checker <= '0;
+
+            rd_irq <= '0;
+            wr_irq <= '0;
         end
         else begin
             state <= state_next;
@@ -158,6 +168,9 @@ module avmm_dma_engine #(
             dma_rddata_data  <= dma_rddata_data_next ;
 
             wait_checker <= wait_checker_next;
+
+            rd_irq <= rd_irq_next;
+            wr_irq <= wr_irq_next;
         end
     end
 
@@ -183,12 +196,7 @@ module avmm_dma_engine #(
             end
             WRITE   : begin
                 if (tx_chipselect && tx_write && !tx_waitrequest && dma_descriptor.bursts_left == 1) begin
-                    if (!msix_mask_i[0]) begin
-                        state_next = GEN_MSI;
-                    end
-                    else begin
-                        state_next = IDLE;
-                    end
+                    state_next = WR_IRQ;
                 end
                 else begin
                     state_next = state;
@@ -196,19 +204,22 @@ module avmm_dma_engine #(
             end
             READ    : begin
                 if (tx_readdatavalid && dma_descriptor.reads_left == 1) begin
-                    if (!msix_mask_i[0]) begin
-                        state_next = GEN_MSI;
-                    end
-                    else begin
-                        state_next = IDLE;
-                    end
+                    state_next = RD_IRQ;
                 end
                 else begin
                     state_next = state;
                 end
             end
-            GEN_MSI : begin
-                if (tx_chipselect && tx_write && !tx_waitrequest) begin
+            RD_IRQ  : begin
+                if (rd_irq_stat_i == '0) begin
+                    state_next = IDLE;
+                end
+                else begin
+                    state_next = state;
+                end
+            end
+            WR_IRQ  : begin
+                if (wr_irq_stat_i == '0) begin
                     state_next = IDLE;
                 end
                 else begin
@@ -239,8 +250,14 @@ module avmm_dma_engine #(
 
         wait_checker_next = wait_checker;
 
+        rd_irq_next = rd_irq;
+        wr_irq_next = wr_irq;
+
         case (state)
             IDLE    : begin
+                rd_irq_next = '0;
+                wr_irq_next = '0;
+
                 if (dma_task_valid_i) begin
                     if (dma_task_write_i && dma_wrdata_count_i >= dma_task_init_i) begin
                         dma_task_ready_o = '1;
@@ -354,40 +371,11 @@ module avmm_dma_engine #(
                 outstanding_reads_next = outstanding_reads_next - tx_readdatavalid;
                 dma_descriptor_next.reads_left = dma_descriptor.reads_left - tx_readdatavalid;
             end
-            GEN_MSI : begin
-                tx_chipselect_next = '1         ;
-                tx_write_next      = '1         ;
-                tx_read_next       = '0         ;
-                tx_burstcount_next = 1          ;
-                case (msix_addr_i[3:0])
-                    'h0    : begin
-                        tx_writedata_next  = msix_data_i << 0 ;
-                        tx_byteenable_next = 16'h000F;
-                    end
-                    'h4    : begin
-                        tx_writedata_next  = msix_data_i << 32;
-                        tx_byteenable_next = 16'h00F0;
-                    end
-                    'h8    : begin
-                        tx_writedata_next  = msix_data_i << 64;
-                        tx_byteenable_next = 16'h0F00;
-                    end
-                    'hC    : begin
-                        tx_writedata_next  = msix_data_i << 96;
-                        tx_byteenable_next = 16'hF000;
-                    end
-                    default: begin
-                        tx_writedata_next  = msix_data_i << 0 ;
-                        tx_byteenable_next = 16'h000F;
-                    end
-                endcase
-                tx_address_next    = {msix_addr_i[63:4], 4'h0};
-
-                if (tx_chipselect && tx_write && !tx_waitrequest) begin
-                    tx_chipselect_next = '0;
-                    tx_write_next      = '0;
-                    tx_read_next       = '0;
-                end
+            RD_IRQ  : begin
+                rd_irq_next = ~rd_irq_stat_i;
+            end
+            WR_IRQ  : begin
+                wr_irq_next = ~wr_irq_stat_i;
             end
             default: begin
             end

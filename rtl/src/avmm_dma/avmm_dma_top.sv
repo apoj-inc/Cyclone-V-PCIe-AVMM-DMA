@@ -117,6 +117,10 @@ module avmm_dma_top #(
     logic [31:0] user_msix_mask  [MSIX_COUNT];
     logic [31:0] user_msix_data  [MSIX_COUNT];
     logic [63:0] user_msix_addrs [MSIX_COUNT];
+    
+    logic [31:0] msix_mask  [MSIX_COUNT*2];
+    logic [31:0] msix_data  [MSIX_COUNT*2];
+    logic [63:0] msix_addrs [MSIX_COUNT*2];
 
     logic                               dma_task_valid_wr  ;
     logic                               dma_task_ready_wr  ;
@@ -134,7 +138,10 @@ module avmm_dma_top #(
 
     logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free, dmawr_task_free;
 
+    logic [MSIX_COUNT*2-1:0] irq_wires;
+
     assign dma_resetn_o = dma_resetn;
+    assign irq_wires[MSIX_COUNT +: MSIX_COUNT] = user_irq_i;
 
     avmm_dma_csr #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
@@ -266,38 +273,50 @@ module avmm_dma_top #(
         .dma_task_init_o    (dma_task_init_demuxed  )
     );
 
-    avmm_dma_user_msix #(
-        .USER_MSIX_COUNT (MSIX_COUNT     ),
+    avmm_dma_dmic #(
+        .MSIX_COUNT     (MSIX_COUNT*2   ),
 
-        .TX_DATA_WIDTH   (TX_DATA_WIDTH  ),
-        .TX_ADDR_WIDTH   (TX_ADDR_WIDTH  ),
-        .TX_BURST_WIDTH  (TX_BURST_WIDTH )
-    ) u_avmm_dma_user_msix (
-        .clk               (clk                      ),
-        .rst_n             (dma_resetn               ),
+        .TX_DATA_WIDTH  (TX_DATA_WIDTH  ),
+        .TX_ADDR_WIDTH  (TX_ADDR_WIDTH  ),
+        .TX_BURST_WIDTH (TX_BURST_WIDTH )
+    ) u_avmm_dma_dmic (
+        .clk              (clk                      ),
+        .rst_n            (dma_resetn               ),
 
-        .irq_i             (user_irq_i               ),
+        .irq_i            (irq_wires                ),
 
-        .user_msix_mask_i  (user_msix_mask           ),
-        .user_msix_data_i  (user_msix_data           ),
-        .user_msix_addrs_i (user_msix_addrs          ),
+        .msix_mask_i      (msix_mask                ),
+        .msix_data_i      (msix_data                ),
+        .msix_addrs_i     (msix_addrs               ),
 
-        .tx_chipselect     (user_msix_m_chipselect   ),
-        .tx_byteenable     (user_msix_m_byteenable   ),
-        .tx_readdata       (user_msix_m_readdata     ),
-        .tx_writedata      (user_msix_m_writedata    ),
-        .tx_read           (user_msix_m_read         ),
-        .tx_write          (user_msix_m_write        ),
-        .tx_burstcount     (user_msix_m_burstcount   ),
-        .tx_readdatavalid  (user_msix_m_readdatavalid),
-        .tx_waitrequest    (user_msix_m_waitrequest  ),
-        .tx_address        (user_msix_m_address      )
+        .tx_chipselect    (user_msix_m_chipselect   ),
+        .tx_byteenable    (user_msix_m_byteenable   ),
+        .tx_readdata      (user_msix_m_readdata     ),
+        .tx_writedata     (user_msix_m_writedata    ),
+        .tx_read          (user_msix_m_read         ),
+        .tx_write         (user_msix_m_write        ),
+        .tx_burstcount    (user_msix_m_burstcount   ),
+        .tx_readdatavalid (user_msix_m_readdatavalid),
+        .tx_waitrequest   (user_msix_m_waitrequest  ),
+        .tx_address       (user_msix_m_address      )
     );
 
     generate
         genvar i;
 
         for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : dma_channels
+            logic rd_irq, wr_irq;
+            
+            assign irq_wires[i] = rd_irq | wr_irq;
+
+            assign msix_mask [i] = dma_msix_mask [i];
+            assign msix_data [i] = dma_msix_data [i];
+            assign msix_addrs[i] = dma_msix_addrs[i];
+
+            assign msix_mask [i + DMA_CHANNEL_COUNT] = user_msix_mask [i];
+            assign msix_data [i + DMA_CHANNEL_COUNT] = user_msix_data [i];
+            assign msix_addrs[i + DMA_CHANNEL_COUNT] = user_msix_addrs[i];
+
             avmm_dma_engine #(
                 .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
                 .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
@@ -311,10 +330,6 @@ module avmm_dma_top #(
             ) u_avmm_dma_engine (
                 .clk                (clk                       ),
                 .rst_n              (dma_resetn                ),
-
-                .msix_mask_i        (dma_msix_mask[i]          ),
-                .msix_data_i        (dma_msix_data[i]          ),
-                .msix_addr_i        (dma_msix_addrs[i]         ),
 
                 .dma_addr_i         (dma_addr[i]               ),
 
@@ -344,7 +359,12 @@ module avmm_dma_top #(
                 .tx_burstcount      (tx_burstcount   [i]       ),
                 .tx_readdatavalid   (tx_readdatavalid[i]       ),
                 .tx_waitrequest     (tx_waitrequest  [i]       ),
-                .tx_address         (tx_address      [i]       )
+                .tx_address         (tx_address      [i]       ),
+
+                .rd_irq_o           (rd_irq                    ),
+                .wr_irq_o           (wr_irq                    ),
+                .rd_irq_stat_i      ('0                        ),
+                .wr_irq_stat_i      ('0                        )
             );
         end
     endgenerate
