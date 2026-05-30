@@ -2,6 +2,7 @@ module stream_arbiter #(
     parameter DATA_WIDTH = 32,
     parameter INPUT_NUM  = 2 ,
     parameter AWAIT_HS   = 1 ,
+    parameter REG_ST     = 0 ,
 
     parameter ADDR_WIDTH = INPUT_NUM == 1 ? 1 : $clog2(INPUT_NUM)
 ) (
@@ -24,7 +25,6 @@ module stream_arbiter #(
 
     logic [INPUT_NUM*2 - 1:0] shifted_valid_i;
 
-    assign sel_o = current_grant;
     assign shifted_valid_i = {valid_i, valid_i} >> current_grant;
 
     always_ff @(posedge ACLK or negedge ARESETn) begin
@@ -55,13 +55,41 @@ module stream_arbiter #(
         next_grant = (next_grant + increment) >= INPUT_NUM ? (next_grant + increment - INPUT_NUM) : (next_grant + increment);
     end
 
-    always_comb begin
+    generate
+        if (REG_ST) begin : register_station
+            logic ready;
+            assign ready_o = ready << current_grant;
 
-        ready_o = '0;
+            stream_fifo #(
+                .DATA_WIDTH (DATA_WIDTH + ADDR_WIDTH),
+                .FIFO_DEPTH (1         )
+            ) skidbuffer (
+                .ACLK    (ACLK   ),
+                .ARESETn (ARESETn),
 
-        valid_o = valid_i[current_grant];
-        data_o = data_i[current_grant];
-        ready_o[current_grant] = ready_i;
-    end
+                .data_i  ({current_grant, data_i[current_grant]}),
+                .valid_i (valid_i[current_grant]                ),
+                .ready_o (ready                                 ),
+                .free_o  (),
+
+                .data_o  ({sel_o, data_o}),
+                .valid_o (valid_o        ),
+                .ready_i (ready_i        ),
+                .count_o ()
+            );
+        end
+        else begin
+            assign sel_o = current_grant;
+
+            always_comb begin
+
+                ready_o = '0;
+
+                valid_o = valid_i[current_grant];
+                data_o = data_i[current_grant];
+                ready_o[current_grant] = ready_i;
+            end
+        end
+    endgenerate
     
 endmodule

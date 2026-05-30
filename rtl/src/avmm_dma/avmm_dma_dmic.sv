@@ -62,8 +62,9 @@ module avmm_dma_dmic #(
     end
 
     stream_arbiter #(
-        .DATA_WIDTH (1              ),
-        .INPUT_NUM  (MSIX_COUNT)
+        .DATA_WIDTH (1         ),
+        .INPUT_NUM  (MSIX_COUNT),
+        .REG_ST     (1         )
     ) u_stream_arbiter (
         .ACLK    (clk                ),
         .ARESETn (rst_n              ),
