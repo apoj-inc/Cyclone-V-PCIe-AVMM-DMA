@@ -285,7 +285,9 @@ module avmm_dma_top #(
 
         .TX_DATA_WIDTH  (TX_DATA_WIDTH  ),
         .TX_ADDR_WIDTH  (TX_ADDR_WIDTH  ),
-        .TX_BURST_WIDTH (TX_BURST_WIDTH )
+        .TX_BURST_WIDTH (TX_BURST_WIDTH ),
+
+        .ST_1_GRP_SIZE  (MSIX_COUNT     )
     ) u_avmm_dma_dmic (
         .clk              (clk                      ),
         .rst_n            (dma_resetn               ),
