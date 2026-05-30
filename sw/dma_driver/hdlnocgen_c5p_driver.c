@@ -41,7 +41,14 @@ static char *hdlnocgen_devnode(const struct device *dev, umode_t *mode) {
 static uint16_t dma_channel_count;
 void __iomem *bar0_ptr, *bar2_ptr;
 int dma_irq_index[16] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-uint8_t dma_irq_flags[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+uint16_t irq_fired = 0;
+
+uint8_t dma_irq_rd_flags[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t dma_irq_wr_flags[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+uint64_t dma_cap_addrs[17] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 
 int user_irq_index[16] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 uint8_t user_irq_flags[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -103,12 +110,15 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
     iowrite64((((uint64_t)len) << 32) | 0, bar2_ptr + 0x1000 + channel*0x10);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d command sent\n", channel);
 
-    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_flags[channel] == 1, HZ*2);
+    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_rd_flags[channel] == 1, HZ*2);
     if (!jiffies) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d timeout\n", channel);
+        uint32_t irq_status = ioread32(bar2_ptr + (dma_cap_addrs[channel] + 0x20));
+        printk(KERN_ERR "hdlnocgen_c5p_driver: irq status %u\n", irq_status);
+        printk(KERN_ERR "hdlnocgen_c5p_driver: irq fired %u times\n", irq_fired);
         return -1;
     }
-    dma_irq_flags[channel] = 0;
+    dma_irq_rd_flags[channel] = 0;
 
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d finished successfully\n", channel);
 
@@ -179,12 +189,15 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
     iowrite64((((uint64_t)(len-not_copied)) << 32) | 0, bar2_ptr + 0x1008 + channel*0x10);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d command sent\n", channel);
 
-    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_flags[channel] == 1, HZ*2);
+    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_wr_flags[channel] == 1, HZ*2);
     if (!jiffies) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d timeout\n", channel);
+        uint32_t irq_status = ioread32(bar2_ptr + (dma_cap_addrs[channel] + 0x20));
+        printk(KERN_ERR "hdlnocgen_c5p_driver: irq status %u\n", irq_status);
+        printk(KERN_ERR "hdlnocgen_c5p_driver: irq fired %u times\n", irq_fired);
         return -1;
     }
-    dma_irq_flags[channel] = 0;
+    dma_irq_wr_flags[channel] = 0;
 
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d finished successfully\n", channel);
 
@@ -220,12 +233,25 @@ static struct pci_driver hdlnocgen_dma_driver = {
 
 
 static irqreturn_t dma_finish(int irq, void *dev) {
+    int irq_index;
+
     for (int i = 0; i < dma_channel_count; i++) {
         if (dma_irq_index[i] == irq) {
-            dma_irq_flags[i] = 1;
-            break;
+            irq_index = i;
         }
     }
+    uint32_t irq_status = ioread32(bar2_ptr + (dma_cap_addrs[irq_index] + 0x20));
+    if (((irq_status & 0x4) >> 2) == 1) {
+        iowrite32(0x1, bar2_ptr + (dma_cap_addrs[irq_index] + 0x20));
+        dma_irq_rd_flags[irq_index] = 1;
+    }
+    if (((irq_status & 0x8) >> 3) == 1) {
+        iowrite32(0x2, bar2_ptr + (dma_cap_addrs[irq_index] + 0x20));
+        dma_irq_wr_flags[irq_index] = 1;
+    }
+
+    irq_fired += 1;
+
     wake_up_all(&dma_wq);
     return IRQ_HANDLED;
 }
@@ -349,6 +375,7 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     // Allocate DMA buffers
     uint32_t next_struct_addr = (ioread32(bar2_ptr) & 0xFFFF0000) >> 16;
     printk(KERN_INFO "hdlnocgen_c5p_driver: Channel 0 struct addr is 0x%x\n", next_struct_addr);
+    dma_cap_addrs[0] = next_struct_addr;
 
     for (int i = 0; i < dma_channel_count; i++) {
         cpu_addr[i] = dma_alloc_coherent(&(pdev->dev), DMA_BUFFER_SIZE, &(dma_handle[i]), GFP_KERNEL);
@@ -365,6 +392,7 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
 
         next_struct_addr = ioread32(bar2_ptr + next_struct_addr);
         printk(KERN_INFO "hdlnocgen_c5p_driver: Channel %d struct addr is 0x%x\n", i+1, next_struct_addr);
+        dma_cap_addrs[i+1] = next_struct_addr;
 
         err_index = i + 1;
     }

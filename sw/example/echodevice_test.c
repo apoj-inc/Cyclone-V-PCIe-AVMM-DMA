@@ -16,6 +16,27 @@ uint64_t checker[DMA_CHANNEL_COUNT][ARRAY_SIZE];
 int fd[DMA_CHANNEL_COUNT];
 int fail[DMA_CHANNEL_COUNT];
 
+pthread_t subthreads[DMA_CHANNEL_COUNT][2];
+
+void *dma_read (void *index) {
+    uint64_t index_int = (uint64_t)index;
+    read(fd[index_int], checker[index_int], sizeof(checker[index_int]));
+}
+void *dma_write (void *index) {
+    uint64_t index_int = (uint64_t)index;
+    write(fd[index_int], kal[index_int], sizeof(kal[index_int]));
+}
+
+void *dma_test_parallel (void *index) {
+    uint64_t index_int = (uint64_t)index;
+
+    pthread_create(&subthreads[index_int][0], NULL, dma_read, (void *)index_int);
+    pthread_create(&subthreads[index_int][1], NULL, dma_write, (void *)index_int);
+
+    pthread_join(subthreads[index_int][0], NULL);
+    pthread_join(subthreads[index_int][1], NULL);
+}
+
 void *dma_test (void *index) {
     int index_int = (uint64_t)index;
     write(fd[index_int], kal[index_int], sizeof(kal[index_int]));
@@ -23,11 +44,12 @@ void *dma_test (void *index) {
 }
 
 int main (int argc, char **argv) {
-    if (argc < 2) {
+    if (argc < 3) {
         return -1;
     }
 
     int iteration_count = atoi(argv[1]);
+    int parallel = atoi(argv[2]);
 
     pthread_t threads[DMA_CHANNEL_COUNT];
 
@@ -65,16 +87,36 @@ int main (int argc, char **argv) {
     }
     printf("All channels initialized data\n");
 
-    for (int iter = 0; iter < iteration_count; iter++) {
+    int csr_fd = open("/dev/hdlnocgen_c5p_dma_csr", O_RDWR);
+    if (csr_fd < 0) {
+        return csr_fd;
+    }
+    uint32_t writedata = 0;
+    pwrite(csr_fd, &writedata, 4, (off_t)0xC);
+    printf("DMA controller reset\n");
 
-        clock_gettime(CLOCK_MONOTONIC, &start);
-        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-            pthread_create(&threads[i], NULL, dma_test, (void *)(uint64_t)i);
+    for (int iter = 0; iter < iteration_count; iter++) {
+        
+        if (parallel) {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+            for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+                pthread_create(&threads[i], NULL, dma_test_parallel, (void *)(uint64_t)i);
+            }
+            for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+                pthread_join(threads[i], NULL);
+            }
+            clock_gettime(CLOCK_MONOTONIC, &stop);
         }
-        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-            pthread_join(threads[i], NULL);
+        else {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+            for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+                pthread_create(&threads[i], NULL, dma_test, (void *)(uint64_t)i);
+            }
+            for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+                pthread_join(threads[i], NULL);
+            }
+            clock_gettime(CLOCK_MONOTONIC, &stop);
         }
-        clock_gettime(CLOCK_MONOTONIC, &stop);
 
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
             for (int j = 0; j < ARRAY_SIZE; j++) {
