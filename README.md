@@ -241,145 +241,31 @@ Features:
 - `#define DMA_BUFFER_SIZE 4194304` sets the size of a DMA buffer for each channel in bytes. You can change it,
 but 4 Mbytes set by default is a practical maximum a stock Linux system can allocate using `dma_alloc_coherent()`.
 
-#### Using existing software test
+#### Using existing software tests
 The current DMA controller example implements a DMA echodevice, where internal DMA read queue is looped over to the DMA write queue, which means, that data
 read from PC to DMA is going to be written from DMA to PC on a subsequent request. There are two userspace software examples, which test and demonstrate this
 project in action:
 
 * `echodevice_interactive.c` - requests user to input data, then writes this data to DMA and reads it back from the DMA;
-* `echodevice_test.c` - tests all DMA channel echodevices over multiple iterations and all external IRQs through the external CSR example.
+* `echodevice_test.c` - tests all DMA channel echodevices over multiple iterations and all external IRQs through the external CSR example;
+* `interchannel_test.c` - Tests parallel DMA read/write operations over multiple iterations. To use it successfuly, go to `toplevel.sv`, change `parameter DMA_ECHODEVICE` to 0, then resynthesize and reprogram the FPGA according to the manual.
 
 All macros are configurable.
 
 Both are built in the same way (root directory of this repository is the starting point):
 ```
 cd ./sw/dma_driver
-gcc -o echodevice_<interactive/test> echodevice_<interactive/test>.c
+gcc -o <source file name> <source file name>.c
 ```
 
 Execution:
 ```
-./echodevice_test
+./echodevice_test <number of iterations> <1 for parallel read/write, 0 for sequential write to PCIe, then read from PCIe>
+./interchannel_test <number of iterations>
 ./echodevice_interactive <DMA channel number>
 ```
 
-#### Writing software in userspace
-Example: 16-channel DMA
-
-Upon inserting the driver module, multiple chrdevs in `/dev` directory are created:
-```
-$ ls -l /dev
-crw-rw-rw-  1 root root    239,   0 May 18 04:17 hdlnocgen_c5p0         \
-crw-rw-rw-  1 root root    239,   1 May 18 04:17 hdlnocgen_c5p1          |
-crw-rw-rw-  1 root root    239,  10 May 18 04:17 hdlnocgen_c5p10         |
-crw-rw-rw-  1 root root    239,  11 May 18 04:17 hdlnocgen_c5p11         |
-crw-rw-rw-  1 root root    239,  12 May 18 04:17 hdlnocgen_c5p12         |
-crw-rw-rw-  1 root root    239,  13 May 18 04:17 hdlnocgen_c5p13         |
-crw-rw-rw-  1 root root    239,  14 May 18 04:17 hdlnocgen_c5p14         |
-crw-rw-rw-  1 root root    239,  15 May 18 04:17 hdlnocgen_c5p15         |
-crw-rw-rw-  1 root root    239,   2 May 18 04:17 hdlnocgen_c5p2          | -> DMA chdevs
-crw-rw-rw-  1 root root    239,   3 May 18 04:17 hdlnocgen_c5p3          |
-crw-rw-rw-  1 root root    239,   4 May 18 04:17 hdlnocgen_c5p4          |
-crw-rw-rw-  1 root root    239,   5 May 18 04:17 hdlnocgen_c5p5          |
-crw-rw-rw-  1 root root    239,   6 May 18 04:17 hdlnocgen_c5p6          |
-crw-rw-rw-  1 root root    239,   7 May 18 04:17 hdlnocgen_c5p7          |
-crw-rw-rw-  1 root root    239,   8 May 18 04:17 hdlnocgen_c5p8          |
-crw-rw-rw-  1 root root    239,   9 May 18 04:17 hdlnocgen_c5p9         /
-crw-rw-rw-  1 root root    239,  17 May 18 04:17 hdlnocgen_c5p_env_csr     -> External CSR chdev
-crw-rw-rw-  1 root root    239,  16 May 18 04:17 hdlnocgen_c5p_user_irq    -> External IRQ chdev
-```
-
-##### DMA read/write (example - channel 6):
-```c
-#define _GNU_SOURCE
-
-#include <stdio.h>
-#include <fcntl.h>
-
-int main () {
-    int fd_dma = open("/dev/hdlnocgen_c5p6", O_RDWR);
-
-    uint64_t data_src[1024];
-    uint64_t data_dst[1024];
-
-    write(fd_dma, data_src, sizeof(data_src)); // DMA write to PCIe
-    read(fd_dma, data_dst, sizeof(data_dst)); // DMA read from PCIe
-
-    int fail = 0;
-    for (int i = 0; i < 1024; i++) {
-        if (data_src[i] != data_dst[i]) {
-            fail++;
-        }
-    }
-    printf("Fail count: %d\n", fail); // Should say "Fail count: 0"
-}
-```
-If `data_src`/`data_dst` size is bigger than DMA buffer size, then DMA write/read will not be started
-eand `write`/`read` functions will return `-ENOMEM`.
-
-##### External CSR read/write:
-
-***
-WARNING! Behaviour of external CSR reads/writes are entirely dependent on the RTL-logic of that CSR.
-External CSR is connected to BAR[2] with offset 0x2000 (address 0x0 of external CSR is address 0x2000
-on BAR[2]).
-
-If any of the following things are valid:
-
-- There are addresses, which are permitted by BAR[2]'s range, where read/write requests result in AVMM's
-`waitrequest` signal never being set to 0;
-- There are addresses, where read requests will never result in AVMM's `readdatavalid` signal being set to 1.
-
-then be extra careful when operating with `/dev/hdlnocgen_c5p_env_csr` chdev. Any wrong move will result in a
-kernel lockup, which will require a hard reset, resulting in possible corruptions or loss of data, even if the
-driver is operating over a virtual machine.
-
-If there's no external CSR or AVMM plug connected to the DMA, then NEVER!!! read/write to `/dev/hdlnocgen_c5p_env_csr`.
-
-Rule of thumb: if AXI/AVMM/any other bus is not verified properly and a host PC with an operating OS is critical,
-don't let the bus anywhere near an FPGA which is connected to the host PC through the kernel.
-***
-```c
-#define _GNU_SOURCE
-
-#include <stdio.h>
-#include <fcntl.h>
-
-int main () {
-    int fd_csr = open("/dev/hdlnocgen_c5p_env_csr", O_RDWR);
-
-    uint32_t wrdata = /*init_value*/;
-    uint64_t rddata;
-
-    pwrite(fd_csr, &wrdata, 4, (off_t)0x0); // Write 32-bit data to address 0x0 of the CSR
-    pwrite(fd_csr, &wrdata, 4, (off_t)0x4); // Write 32-bit data to address 0x4 of the CSR
-    pread(fd_csr, &rddata, 8, (off_t)0x10); // Read 64-bit data from address 0x10 of the CSR
-}
-```
-
-##### Checking external IRQ status:
-```c
-#define _GNU_SOURCE
-
-#include <stdio.h>
-#include <fcntl.h>
-
-int main () {
-    int fd_irq = open("/dev/hdlnocgen_c5p_user_irq", O_RDWR);
-
-    uint8_t irq_status;
-    uint8_t deassert_irq = 0;
-
-    pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)0x0);      // Read external IRQ 0 status (0 or 1)
-    pwrite(fd_irq, &deassert_irq, sizeof(deassert_irq), (off_t)0x0); // Deassert external IRQ 0 (status will turn to 0)
-    pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)0x0);      // Read external IRQ 0 status (0 if not asserted again)
-    
-
-    pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)0x9);      // Read external IRQ 9 status (0 or 1)
-    pwrite(fd_irq, &deassert_irq, sizeof(deassert_irq), (off_t)0x9); // Deassert external IRQ 9 (status will turn to 0)
-    pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)0x9);      // Read external IRQ 9 status (0 if not asserted again)
-}
-```
+Specifics on how to develop software for this DMA controller and more info about the DMA controller's HDL-code is contained in the GitHub Wiki of this repository.
 
 #### Using a VM
 To use this project through a VM, make surem that following things are true:
