@@ -1,2 +1,9 @@
 transcript
 .cache/
+
+sw/dma_driver/*
+!sw/dma_driver/hdlnocgen_c5p_driver.c
+!sw/dma_driver/Makefile
+
+sw/example/*
+!sw/example/*.c

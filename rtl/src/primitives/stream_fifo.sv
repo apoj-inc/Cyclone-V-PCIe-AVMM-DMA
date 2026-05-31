@@ -2,7 +2,7 @@ module stream_fifo #(
     parameter DATA_WIDTH = 32,
     parameter FIFO_DEPTH = 16,
 
-    parameter ADDR_WIDTH = $clog2(FIFO_DEPTH)
+    parameter ADDR_WIDTH = FIFO_DEPTH == 1 ? 1 : $clog2(FIFO_DEPTH)
 ) (
     input  logic                  ACLK   ,
     input  logic                  ARESETn,

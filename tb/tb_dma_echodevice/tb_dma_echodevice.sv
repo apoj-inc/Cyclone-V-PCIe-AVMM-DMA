@@ -136,7 +136,7 @@ generate
                 msi_assertion_count[i] <= '0;
             end
             else begin
-                if (tx_chipselect[i] && tx_write[i] && !tx_waitrequest[i] && (tx_address[i] == {32'('hFEE00000), 32'((i/4)*16)}) && (tx_byteenable[i] == ('h000F << ((i%4)*4))) && (tx_writedata[i] == (32'('hDEADBEE0 + i) << ((i%4)*32)))) begin
+                if (user_msix_m_chipselect && user_msix_m_write && !user_msix_m_waitrequest && (user_msix_m_address == {32'('hFEE00000), 32'((i/4)*16)}) && (user_msix_m_byteenable == ('h000F << ((i%4)*4))) && (user_msix_m_writedata == (32'('hDEADBEE0 + i) << ((i%4)*32)))) begin
                     msi_assertion_count[i] <= msi_assertion_count[i] + 1;
                 end
             end
@@ -468,11 +468,11 @@ initial begin
         dec_s_write      = '0;
         // Testing DMA reset
         csr_s_chipselect = '1;
-        csr_s_byteenable = 'h000F;
+        csr_s_byteenable = 'hF000;
         csr_s_read       = '0;
         csr_s_write      = '1;
         csr_s_writedata  = '0;
-        csr_s_address    = 'h10;
+        csr_s_address    = '0;
         @(posedge clk);
         while (csr_s_waitrequest) begin
             @(posedge clk);
@@ -526,10 +526,121 @@ initial begin
         end
         dec_s_write      = '0;
 
+        repeat (600) @(posedge clk);
+        
+        csr_s_chipselect = '1;
+        csr_s_byteenable = 'h000F;
+        csr_s_read       = '1;
+        csr_s_write      = '0;
+        csr_s_writedata  = '0;
+        csr_s_address    = '0;
+        @(posedge clk);
+        csr_s_read       = '0;
+        while (!csr_s_readdatavalid) begin
+            @(posedge clk);
+        end
+        current_struct = csr_s_readdata[31:16];
+
+        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+            csr_s_chipselect = '1;
+            csr_s_byteenable = 'h00F;
+            csr_s_read       = '0;
+            csr_s_write      = '1;
+            csr_s_writedata  = 'b01;
+            csr_s_address    = current_struct + 'h20;
+            @(posedge clk);
+            while (csr_s_waitrequest) begin
+                @(posedge clk);
+            end
+
+            csr_s_chipselect = '1;
+            csr_s_byteenable = 'h00F;
+            csr_s_read       = '0;
+            csr_s_write      = '1;
+            csr_s_writedata  = 'b10;
+            csr_s_address    = current_struct + 'h20;
+            @(posedge clk);
+            while (csr_s_waitrequest) begin
+                @(posedge clk);
+            end
+
+            csr_s_chipselect = '1;
+            csr_s_byteenable = 'h000F;
+            csr_s_read       = '1;
+            csr_s_write      = '0;
+            csr_s_writedata  = '0;
+            csr_s_address    = current_struct;
+            @(posedge clk);
+            csr_s_read       = '0;
+            while (!csr_s_readdatavalid) begin
+                @(posedge clk);
+            end
+            current_struct = csr_s_readdata[31:0];
+        end
+
+        repeat (600) @(posedge clk);
+        
+        csr_s_chipselect = '1;
+        csr_s_byteenable = 'h000F;
+        csr_s_read       = '1;
+        csr_s_write      = '0;
+        csr_s_writedata  = '0;
+        csr_s_address    = '0;
+        @(posedge clk);
+        csr_s_read       = '0;
+        while (!csr_s_readdatavalid) begin
+            @(posedge clk);
+        end
+        current_struct = csr_s_readdata[31:16];
+
+        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+            csr_s_chipselect = '1;
+            csr_s_byteenable = 'h00F;
+            csr_s_read       = '0;
+            csr_s_write      = '1;
+            csr_s_writedata  = 'b01;
+            csr_s_address    = current_struct + 'h20;
+            @(posedge clk);
+            while (csr_s_waitrequest) begin
+                @(posedge clk);
+            end
+
+            csr_s_chipselect = '1;
+            csr_s_byteenable = 'h00F;
+            csr_s_read       = '0;
+            csr_s_write      = '1;
+            csr_s_writedata  = 'b10;
+            csr_s_address    = current_struct + 'h20;
+            @(posedge clk);
+            while (csr_s_waitrequest) begin
+                @(posedge clk);
+            end
+
+            csr_s_chipselect = '1;
+            csr_s_byteenable = 'h000F;
+            csr_s_read       = '1;
+            csr_s_write      = '0;
+            csr_s_writedata  = '0;
+            csr_s_address    = current_struct;
+            @(posedge clk);
+            csr_s_read       = '0;
+            while (!csr_s_readdatavalid) begin
+                @(posedge clk);
+            end
+            current_struct = csr_s_readdata[31:0];
+        end
+
         for (int j = 0; j < DMA_CHANNEL_COUNT; j++) begin
             repeat (100) @(posedge clk);
-            while (msi_assertion_count[j] != (8 - j%2*4 - (1-i)*4)) begin
-                @(posedge clk);
+            if (i == 0) begin
+                while (msi_assertion_count[j] != (4 - j%2*4)) begin
+                    @(posedge clk);
+                end
+            end
+            else begin
+                while (msi_assertion_count[j] != (8 - j%2*2)) begin
+                    @(posedge clk);
+                end               
             end
         
             // Demask masked MSIX
@@ -549,6 +660,9 @@ initial begin
     end
 
     // Test user IRQs
+    while ($size(user_msix_log)) begin
+        user_msix_log.pop_front();
+    end
     for (int i = 0; i < MSIX_COUNT; i++) begin
         user_csr_s_chipselect = '1;
         user_csr_s_byteenable = 'h000F << (4 * (i%4));
