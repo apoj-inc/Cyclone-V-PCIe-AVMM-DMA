@@ -138,29 +138,22 @@ module avmm_dma_csr #(
         end
     end
 
-    assign word_enable = {avmm_s_byteenable[12], avmm_s_byteenable[8], avmm_s_byteenable[4], avmm_s_byteenable[0]};
+    generate
+        genvar i_0;
+
+        for (i_0 = 0; i_0 < BAR_DATA_BYTES/4; i_0++) begin : byteen_to_worden
+            assign word_enable[i_0] = avmm_s_byteenable[i_0*4];
+        end
+    endgenerate
 
     always_comb begin
-        casez (word_enable)
-            4'b???1: translated_addr = avmm_s_address;
-            4'b??10: translated_addr = avmm_s_address + 4;
-            4'b?100: translated_addr = avmm_s_address + 8;
-            4'b1000: translated_addr = avmm_s_address + 12;
-            default: translated_addr = avmm_s_address;
-        endcase
-
-        casez (word_enable)
-            4'b???1: translated_wdata = avmm_s_writedata[31:0]  ;
-            4'b??10: translated_wdata = avmm_s_writedata[63:32] ;
-            4'b?100: translated_wdata = avmm_s_writedata[95:64] ;
-            4'b1000: translated_wdata = avmm_s_writedata[127:96];
-            default: translated_wdata = avmm_s_writedata[31:0]  ;
-        endcase
-        
-        avmm_s_readdata[31:0]   = translated_rdata;
-        avmm_s_readdata[63:32]  = translated_rdata;
-        avmm_s_readdata[95:64]  = translated_rdata;
-        avmm_s_readdata[127:96] = translated_rdata;
+        for (int i = BAR_DATA_BYTES/4 - 1; i >= 0; i--) begin
+            if (word_enable[i]) begin
+                translated_addr = avmm_s_address + (i << 2);
+                translated_wdata = avmm_s_writedata[(i << 5) +: 32];
+            end
+            avmm_s_readdata[(i << 5) +: 32] = translated_rdata;
+        end
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
