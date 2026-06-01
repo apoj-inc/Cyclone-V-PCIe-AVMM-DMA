@@ -29,81 +29,81 @@ module avmm_dma_top #(
     parameter DMA_BURST_WIDTH         = DMA_BYTES_WIDTH - 4                                   ,
     parameter DMA_CHANNEL_COUNT_WIDTH = DMA_CHANNEL_COUNT == 1 ? 1 : $clog2(DMA_CHANNEL_COUNT)
 ) (
-    input  logic                       clk                                           ,
-    input  logic                       rst_n                                         ,
+    input  logic                       clk                                     ,
+    input  logic                       rst_n                                   ,
 
     // CSR AVMM bus
-    input  logic                       csr_s_chipselect                              ,
-    input  logic [BAR_DATA_BYTES-1:0]  csr_s_byteenable                              ,
-    output logic [BAR_DATA_WIDTH-1:0]  csr_s_readdata                                ,
-    input  logic [BAR_DATA_WIDTH-1:0]  csr_s_writedata                               ,
-    input  logic                       csr_s_read                                    ,
-    input  logic                       csr_s_write                                   ,
-    output logic                       csr_s_readdatavalid                           ,
-    output logic                       csr_s_waitrequest                             ,
-    input  logic [BAR_ADDR_WIDTH-1:0]  csr_s_address                                 ,
+    input  logic                       csr_s_chipselect                        ,
+    input  logic [BAR_DATA_BYTES-1:0]  csr_s_byteenable                        ,
+    output logic [BAR_DATA_WIDTH-1:0]  csr_s_readdata                          ,
+    input  logic [BAR_DATA_WIDTH-1:0]  csr_s_writedata                         ,
+    input  logic                       csr_s_read                              ,
+    input  logic                       csr_s_write                             ,
+    output logic                       csr_s_readdatavalid                     ,
+    output logic                       csr_s_waitrequest                       ,
+    input  logic [BAR_ADDR_WIDTH-1:0]  csr_s_address                           ,
 
     // MSI-X AVMM bus
-    input  logic                       msix_s_chipselect                             ,
-    input  logic [BAR_DATA_BYTES-1:0]  msix_s_byteenable                             ,
-    output logic [BAR_DATA_WIDTH-1:0]  msix_s_readdata                               ,
-    input  logic [BAR_DATA_WIDTH-1:0]  msix_s_writedata                              ,
-    input  logic                       msix_s_read                                   ,
-    input  logic                       msix_s_write                                  ,
-    output logic                       msix_s_readdatavalid                          ,
-    output logic                       msix_s_waitrequest                            ,
-    input  logic [BAR_ADDR_WIDTH-1:0]  msix_s_address                                ,
+    input  logic                       msix_s_chipselect                       ,
+    input  logic [BAR_DATA_BYTES-1:0]  msix_s_byteenable                       ,
+    output logic [BAR_DATA_WIDTH-1:0]  msix_s_readdata                         ,
+    input  logic [BAR_DATA_WIDTH-1:0]  msix_s_writedata                        ,
+    input  logic                       msix_s_read                             ,
+    input  logic                       msix_s_write                            ,
+    output logic                       msix_s_readdatavalid                    ,
+    output logic                       msix_s_waitrequest                      ,
+    input  logic [BAR_ADDR_WIDTH-1:0]  msix_s_address                          ,
 
     // Decoder AVMM bus
-    input  logic                       dec_s_chipselect                              ,
-    input  logic [BAR_DATA_BYTES-1:0]  dec_s_byteenable                              ,
-    output logic [BAR_DATA_WIDTH-1:0]  dec_s_readdata                                ,
-    input  logic [BAR_DATA_WIDTH-1:0]  dec_s_writedata                               ,
-    input  logic                       dec_s_read                                    ,
-    input  logic                       dec_s_write                                   ,
-    output logic                       dec_s_readdatavalid                           ,
-    output logic                       dec_s_waitrequest                             ,
-    input  logic [BAR_ADDR_WIDTH-1:0]  dec_s_address                                 ,
+    input  logic                       dec_s_chipselect                        ,
+    input  logic [BAR_DATA_BYTES-1:0]  dec_s_byteenable                        ,
+    output logic [BAR_DATA_WIDTH-1:0]  dec_s_readdata                          ,
+    input  logic [BAR_DATA_WIDTH-1:0]  dec_s_writedata                         ,
+    input  logic                       dec_s_read                              ,
+    input  logic                       dec_s_write                             ,
+    output logic                       dec_s_readdatavalid                     ,
+    output logic                       dec_s_waitrequest                       ,
+    input  logic [BAR_ADDR_WIDTH-1:0]  dec_s_address                           ,
 
-    input  logic [MSIX_COUNT-1:0]      user_irq_i                                    ,
+    input  logic [MSIX_COUNT-1:0]      user_irq_i                              ,
 
     // User MSIX AVMM bus
-    output logic                       user_msix_m_chipselect                        ,
-    output logic [TX_DATA_BYTES-1:0]   user_msix_m_byteenable                        ,
-    input  logic [TX_DATA_WIDTH-1:0]   user_msix_m_readdata                          ,
-    output logic [TX_DATA_WIDTH-1:0]   user_msix_m_writedata                         ,
-    output logic                       user_msix_m_read                              ,
-    output logic                       user_msix_m_write                             ,
-    output logic [TX_BURST_WIDTH-1:0]  user_msix_m_burstcount                        ,
-    input  logic                       user_msix_m_readdatavalid                     ,
-    input  logic                       user_msix_m_waitrequest                       ,
-    output logic [TX_ADDR_WIDTH-1:0]   user_msix_m_address                           ,
+    output logic                       msix_m_chipselect                       ,
+    output logic [TX_DATA_BYTES-1:0]   msix_m_byteenable                       ,
+    input  logic [TX_DATA_WIDTH-1:0]   msix_m_readdata                         ,
+    output logic [TX_DATA_WIDTH-1:0]   msix_m_writedata                        ,
+    output logic                       msix_m_read                             ,
+    output logic                       msix_m_write                            ,
+    output logic [TX_BURST_WIDTH-1:0]  msix_m_burstcount                       ,
+    input  logic                       msix_m_readdatavalid                    ,
+    input  logic                       msix_m_waitrequest                      ,
+    output logic [TX_ADDR_WIDTH-1:0]   msix_m_address                          ,
     
     // DMA AVMM buses
-    output logic                       tx_chipselect              [DMA_CHANNEL_COUNT],
-    output logic [TX_DATA_BYTES-1:0]   tx_byteenable              [DMA_CHANNEL_COUNT],
-    input  logic [TX_DATA_WIDTH-1:0]   tx_readdata                [DMA_CHANNEL_COUNT],
-    output logic [TX_DATA_WIDTH-1:0]   tx_writedata               [DMA_CHANNEL_COUNT],
-    output logic                       tx_read                    [DMA_CHANNEL_COUNT],
-    output logic                       tx_write                   [DMA_CHANNEL_COUNT],
-    output logic [TX_BURST_WIDTH-1:0]  tx_burstcount              [DMA_CHANNEL_COUNT],
-    input  logic                       tx_readdatavalid           [DMA_CHANNEL_COUNT],
-    input  logic                       tx_waitrequest             [DMA_CHANNEL_COUNT],
-    output logic [TX_ADDR_WIDTH-1:0]   tx_address                 [DMA_CHANNEL_COUNT],
+    output logic                       tx_chipselect        [DMA_CHANNEL_COUNT],
+    output logic [TX_DATA_BYTES-1:0]   tx_byteenable        [DMA_CHANNEL_COUNT],
+    input  logic [TX_DATA_WIDTH-1:0]   tx_readdata          [DMA_CHANNEL_COUNT],
+    output logic [TX_DATA_WIDTH-1:0]   tx_writedata         [DMA_CHANNEL_COUNT],
+    output logic                       tx_read              [DMA_CHANNEL_COUNT],
+    output logic                       tx_write             [DMA_CHANNEL_COUNT],
+    output logic [TX_BURST_WIDTH-1:0]  tx_burstcount        [DMA_CHANNEL_COUNT],
+    input  logic                       tx_readdatavalid     [DMA_CHANNEL_COUNT],
+    input  logic                       tx_waitrequest       [DMA_CHANNEL_COUNT],
+    output logic [TX_ADDR_WIDTH-1:0]   tx_address           [DMA_CHANNEL_COUNT],
 
     // DMAWR FIFO
-    input  logic                       dma_wrdata_valid_i         [DMA_CHANNEL_COUNT],
-    output logic                       dma_wrdata_ready_o         [DMA_CHANNEL_COUNT],
-    input  logic [DMA_WQ_ADDR_WIDTH:0] dma_wrdata_count_i         [DMA_CHANNEL_COUNT],
-    input  logic [TX_DATA_WIDTH-1:0]   dma_wrdata_data_i          [DMA_CHANNEL_COUNT],
+    input  logic                       dma_wrdata_valid_i   [DMA_CHANNEL_COUNT],
+    output logic                       dma_wrdata_ready_o   [DMA_CHANNEL_COUNT],
+    input  logic [DMA_WQ_ADDR_WIDTH:0] dma_wrdata_count_i   [DMA_CHANNEL_COUNT],
+    input  logic [TX_DATA_WIDTH-1:0]   dma_wrdata_data_i    [DMA_CHANNEL_COUNT],
 
     // DMARD FIFO
-    output logic                       dma_rddata_valid_o         [DMA_CHANNEL_COUNT],
-    input  logic                       dma_rddata_ready_i         [DMA_CHANNEL_COUNT],
-    input  logic [DMA_RQ_ADDR_WIDTH:0] dma_rddata_free_i          [DMA_CHANNEL_COUNT],
-    output logic [TX_DATA_WIDTH-1:0]   dma_rddata_data_o          [DMA_CHANNEL_COUNT],
+    output logic                       dma_rddata_valid_o   [DMA_CHANNEL_COUNT],
+    input  logic                       dma_rddata_ready_i   [DMA_CHANNEL_COUNT],
+    input  logic [DMA_RQ_ADDR_WIDTH:0] dma_rddata_free_i    [DMA_CHANNEL_COUNT],
+    output logic [TX_DATA_WIDTH-1:0]   dma_rddata_data_o    [DMA_CHANNEL_COUNT],
 
-    output logic                       dma_resetn_o                                  
+    output logic                       dma_resetn_o                            
 );
 
     logic dma_resetn;
@@ -289,25 +289,25 @@ module avmm_dma_top #(
 
         .ST_1_GRP_SIZE  (MSIX_COUNT     )
     ) u_avmm_dma_dmic (
-        .clk              (clk                      ),
-        .rst_n            (dma_resetn               ),
+        .clk              (clk                 ),
+        .rst_n            (dma_resetn          ),
 
-        .irq_i            (irq_wires                ),
+        .irq_i            (irq_wires           ),
 
-        .msix_mask_i      (msix_mask                ),
-        .msix_data_i      (msix_data                ),
-        .msix_addrs_i     (msix_addrs               ),
+        .msix_mask_i      (msix_mask           ),
+        .msix_data_i      (msix_data           ),
+        .msix_addrs_i     (msix_addrs          ),
 
-        .tx_chipselect    (user_msix_m_chipselect   ),
-        .tx_byteenable    (user_msix_m_byteenable   ),
-        .tx_readdata      (user_msix_m_readdata     ),
-        .tx_writedata     (user_msix_m_writedata    ),
-        .tx_read          (user_msix_m_read         ),
-        .tx_write         (user_msix_m_write        ),
-        .tx_burstcount    (user_msix_m_burstcount   ),
-        .tx_readdatavalid (user_msix_m_readdatavalid),
-        .tx_waitrequest   (user_msix_m_waitrequest  ),
-        .tx_address       (user_msix_m_address      )
+        .tx_chipselect    (msix_m_chipselect   ),
+        .tx_byteenable    (msix_m_byteenable   ),
+        .tx_readdata      (msix_m_readdata     ),
+        .tx_writedata     (msix_m_writedata    ),
+        .tx_read          (msix_m_read         ),
+        .tx_write         (msix_m_write        ),
+        .tx_burstcount    (msix_m_burstcount   ),
+        .tx_readdatavalid (msix_m_readdatavalid),
+        .tx_waitrequest   (msix_m_waitrequest  ),
+        .tx_address       (msix_m_address      )
     );
 
     generate

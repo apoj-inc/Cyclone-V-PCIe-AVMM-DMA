@@ -85,16 +85,16 @@ logic [BAR_ADDR_WIDTH-1:0]  user_csr_s_address                      ;
 
 logic [MSIX_COUNT-1:0]      user_irq_i                              ;
 
-logic                       user_msix_m_chipselect                  ;
-logic [TX_DATA_BYTES-1:0]   user_msix_m_byteenable                  ;
-logic [TX_DATA_WIDTH-1:0]   user_msix_m_readdata                    ;
-logic [TX_DATA_WIDTH-1:0]   user_msix_m_writedata                   ;
-logic                       user_msix_m_read                        ;
-logic                       user_msix_m_write                       ;
-logic [TX_BURST_WIDTH-1:0]  user_msix_m_burstcount                  ;
-logic                       user_msix_m_readdatavalid               ;
-logic                       user_msix_m_waitrequest                 ;
-logic [TX_ADDR_WIDTH-1:0]   user_msix_m_address                     ;
+logic                       msix_m_chipselect                       ;
+logic [TX_DATA_BYTES-1:0]   msix_m_byteenable                       ;
+logic [TX_DATA_WIDTH-1:0]   msix_m_readdata                         ;
+logic [TX_DATA_WIDTH-1:0]   msix_m_writedata                        ;
+logic                       msix_m_read                             ;
+logic                       msix_m_write                            ;
+logic [TX_BURST_WIDTH-1:0]  msix_m_burstcount                       ;
+logic                       msix_m_readdatavalid                    ;
+logic                       msix_m_waitrequest                      ;
+logic [TX_ADDR_WIDTH-1:0]   msix_m_address                          ;
 
 logic                       tx_chipselect        [DMA_CHANNEL_COUNT];
 logic [TX_DATA_BYTES-1:0]   tx_byteenable        [DMA_CHANNEL_COUNT];
@@ -111,17 +111,17 @@ logic [TX_ADDR_WIDTH-1:0]   tx_address           [DMA_CHANNEL_COUNT];
 logic [TX_DATA_WIDTH+TX_ADDR_WIDTH+TX_DATA_WIDTH/8-1:0] user_msix_log [$];
 
 always_ff @(posedge clk) begin
-    if (user_msix_m_chipselect && user_msix_m_write && !user_msix_m_waitrequest) begin
-        user_msix_log.push_back({user_msix_m_writedata, user_msix_m_address, user_msix_m_byteenable});
+    if (msix_m_chipselect && msix_m_write && !msix_m_waitrequest) begin
+        user_msix_log.push_back({msix_m_writedata, msix_m_address, msix_m_byteenable});
     end
 end
 
 always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        user_msix_m_waitrequest <= '1;
+        msix_m_waitrequest <= '1;
     end
     else begin
-        user_msix_m_waitrequest <= $urandom();
+        msix_m_waitrequest <= $urandom();
     end
 end
 
@@ -136,7 +136,7 @@ generate
                 msi_assertion_count[i] <= '0;
             end
             else begin
-                if (user_msix_m_chipselect && user_msix_m_write && !user_msix_m_waitrequest && (user_msix_m_address == {32'('hFEE00000), 32'((i/4)*16)}) && (user_msix_m_byteenable == ('h000F << ((i%4)*4))) && (user_msix_m_writedata == (32'('hDEADBEE0 + i) << ((i%4)*32)))) begin
+                if (msix_m_chipselect && msix_m_write && !msix_m_waitrequest && (msix_m_address == {32'('hFEE00000), 32'((i/4)*16)}) && (msix_m_byteenable == ('h000F << ((i%4)*4))) && (msix_m_writedata == (32'('hDEADBEE0 + i) << ((i%4)*32)))) begin
                     msi_assertion_count[i] <= msi_assertion_count[i] + 1;
                 end
             end
@@ -248,70 +248,70 @@ avmm_dma_echodevice #(
     .TX_ADDR_WIDTH     (TX_ADDR_WIDTH     ),
     .TX_BURST_WIDTH    (TX_BURST_WIDTH    )
 ) dut (
-    .clk                       (clk                      ),
-    .rst_n                     (rst_n                    ),
+    .clk                      (clk                      ),
+    .rst_n                    (rst_n                    ),
 
-    .csr_s_chipselect          (csr_s_chipselect         ),
-    .csr_s_byteenable          (csr_s_byteenable         ),
-    .csr_s_readdata            (csr_s_readdata           ),
-    .csr_s_writedata           (csr_s_writedata          ),
-    .csr_s_read                (csr_s_read               ),
-    .csr_s_write               (csr_s_write              ),
-    .csr_s_readdatavalid       (csr_s_readdatavalid      ),
-    .csr_s_waitrequest         (csr_s_waitrequest        ),
-    .csr_s_address             (csr_s_address            ),
+    .csr_s_chipselect         (csr_s_chipselect         ),
+    .csr_s_byteenable         (csr_s_byteenable         ),
+    .csr_s_readdata           (csr_s_readdata           ),
+    .csr_s_writedata          (csr_s_writedata          ),
+    .csr_s_read               (csr_s_read               ),
+    .csr_s_write              (csr_s_write              ),
+    .csr_s_readdatavalid      (csr_s_readdatavalid      ),
+    .csr_s_waitrequest        (csr_s_waitrequest        ),
+    .csr_s_address            (csr_s_address            ),
 
-    .msix_s_chipselect         (msix_s_chipselect        ),
-    .msix_s_byteenable         (msix_s_byteenable        ),
-    .msix_s_readdata           (msix_s_readdata          ),
-    .msix_s_writedata          (msix_s_writedata         ),
-    .msix_s_read               (msix_s_read              ),
-    .msix_s_write              (msix_s_write             ),
-    .msix_s_readdatavalid      (msix_s_readdatavalid     ),
-    .msix_s_waitrequest        (msix_s_waitrequest       ),
-    .msix_s_address            (msix_s_address           ),
+    .msix_s_chipselect        (msix_s_chipselect        ),
+    .msix_s_byteenable        (msix_s_byteenable        ),
+    .msix_s_readdata          (msix_s_readdata          ),
+    .msix_s_writedata         (msix_s_writedata         ),
+    .msix_s_read              (msix_s_read              ),
+    .msix_s_write             (msix_s_write             ),
+    .msix_s_readdatavalid     (msix_s_readdatavalid     ),
+    .msix_s_waitrequest       (msix_s_waitrequest       ),
+    .msix_s_address           (msix_s_address           ),
 
-    .dec_s_chipselect          (dec_s_chipselect         ),
-    .dec_s_byteenable          (dec_s_byteenable         ),
-    .dec_s_readdata            (dec_s_readdata           ),
-    .dec_s_writedata           (dec_s_writedata          ),
-    .dec_s_read                (dec_s_read               ),
-    .dec_s_write               (dec_s_write              ),
-    .dec_s_readdatavalid       (dec_s_readdatavalid      ),
-    .dec_s_waitrequest         (dec_s_waitrequest        ),
-    .dec_s_address             (dec_s_address            ),
+    .dec_s_chipselect         (dec_s_chipselect         ),
+    .dec_s_byteenable         (dec_s_byteenable         ),
+    .dec_s_readdata           (dec_s_readdata           ),
+    .dec_s_writedata          (dec_s_writedata          ),
+    .dec_s_read               (dec_s_read               ),
+    .dec_s_write              (dec_s_write              ),
+    .dec_s_readdatavalid      (dec_s_readdatavalid      ),
+    .dec_s_waitrequest        (dec_s_waitrequest        ),
+    .dec_s_address            (dec_s_address            ),
 
-    .user_csr_s_chipselect     (user_csr_s_chipselect    ),
-    .user_csr_s_byteenable     (user_csr_s_byteenable    ),
-    .user_csr_s_readdata       (user_csr_s_readdata      ),
-    .user_csr_s_writedata      (user_csr_s_writedata     ),
-    .user_csr_s_read           (user_csr_s_read          ),
-    .user_csr_s_write          (user_csr_s_write         ),
-    .user_csr_s_readdatavalid  (user_csr_s_readdatavalid ),
-    .user_csr_s_waitrequest    (user_csr_s_waitrequest   ),
-    .user_csr_s_address        (user_csr_s_address       ),
+    .user_csr_s_chipselect    (user_csr_s_chipselect    ),
+    .user_csr_s_byteenable    (user_csr_s_byteenable    ),
+    .user_csr_s_readdata      (user_csr_s_readdata      ),
+    .user_csr_s_writedata     (user_csr_s_writedata     ),
+    .user_csr_s_read          (user_csr_s_read          ),
+    .user_csr_s_write         (user_csr_s_write         ),
+    .user_csr_s_readdatavalid (user_csr_s_readdatavalid ),
+    .user_csr_s_waitrequest   (user_csr_s_waitrequest   ),
+    .user_csr_s_address       (user_csr_s_address       ),
 
-    .user_msix_m_chipselect    (user_msix_m_chipselect   ),
-    .user_msix_m_byteenable    (user_msix_m_byteenable   ),
-    .user_msix_m_readdata      (user_msix_m_readdata     ),
-    .user_msix_m_writedata     (user_msix_m_writedata    ),
-    .user_msix_m_read          (user_msix_m_read         ),
-    .user_msix_m_write         (user_msix_m_write        ),
-    .user_msix_m_burstcount    (user_msix_m_burstcount   ),
-    .user_msix_m_readdatavalid (user_msix_m_readdatavalid),
-    .user_msix_m_waitrequest   (user_msix_m_waitrequest  ),
-    .user_msix_m_address       (user_msix_m_address      ),
+    .msix_m_chipselect        (msix_m_chipselect        ),
+    .msix_m_byteenable        (msix_m_byteenable        ),
+    .msix_m_readdata          (msix_m_readdata          ),
+    .msix_m_writedata         (msix_m_writedata         ),
+    .msix_m_read              (msix_m_read              ),
+    .msix_m_write             (msix_m_write             ),
+    .msix_m_burstcount        (msix_m_burstcount        ),
+    .msix_m_readdatavalid     (msix_m_readdatavalid     ),
+    .msix_m_waitrequest       (msix_m_waitrequest       ),
+    .msix_m_address           (msix_m_address           ),
 
-    .tx_chipselect             (tx_chipselect            ),
-    .tx_byteenable             (tx_byteenable            ),
-    .tx_readdata               (tx_readdata              ),
-    .tx_writedata              (tx_writedata             ),
-    .tx_read                   (tx_read                  ),
-    .tx_write                  (tx_write                 ),
-    .tx_burstcount             (tx_burstcount            ),
-    .tx_readdatavalid          (tx_readdatavalid         ),
-    .tx_waitrequest            (tx_waitrequest           ),
-    .tx_address                (tx_address               )
+    .tx_chipselect            (tx_chipselect            ),
+    .tx_byteenable            (tx_byteenable            ),
+    .tx_readdata              (tx_readdata              ),
+    .tx_writedata             (tx_writedata             ),
+    .tx_read                  (tx_read                  ),
+    .tx_write                 (tx_write                 ),
+    .tx_burstcount            (tx_burstcount            ),
+    .tx_readdatavalid         (tx_readdatavalid         ),
+    .tx_waitrequest           (tx_waitrequest           ),
+    .tx_address               (tx_address               )
 );
 
 always #10 clk = ~clk;
