@@ -157,14 +157,10 @@ module avmm_dma_csr #(
             default: translated_wdata = avmm_s_writedata[31:0]  ;
         endcase
         
-        avmm_s_readdata = '0;
-        casez (word_enable)
-            4'b???1: avmm_s_readdata[31:0]   = translated_rdata;
-            4'b??10: avmm_s_readdata[63:32]  = translated_rdata;
-            4'b?100: avmm_s_readdata[95:64]  = translated_rdata;
-            4'b1000: avmm_s_readdata[127:96] = translated_rdata;
-            default: avmm_s_readdata[31:0]   = translated_rdata;
-        endcase
+        avmm_s_readdata[31:0]   = translated_rdata;
+        avmm_s_readdata[63:32]  = translated_rdata;
+        avmm_s_readdata[95:64]  = translated_rdata;
+        avmm_s_readdata[127:96] = translated_rdata;
     end
 
     always_ff @(posedge clk or negedge rst_n) begin

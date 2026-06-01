@@ -10,37 +10,48 @@
 
 #define ARRAY_SIZE (uint64_t)(1024*16/8)
 #define DMA_CHANNEL_COUNT 8
+#define TASK_MULTIPLIER (16/DMA_CHANNEL_COUNT)
 
-uint64_t kal[DMA_CHANNEL_COUNT][ARRAY_SIZE];
-uint64_t checker[DMA_CHANNEL_COUNT][ARRAY_SIZE];
+uint64_t kal[DMA_CHANNEL_COUNT][TASK_MULTIPLIER][ARRAY_SIZE];
+uint64_t checker[DMA_CHANNEL_COUNT][TASK_MULTIPLIER][ARRAY_SIZE];
 int fd[DMA_CHANNEL_COUNT];
 int fail[DMA_CHANNEL_COUNT];
 
-pthread_t subthreads[DMA_CHANNEL_COUNT][2];
+pthread_t subthreads[DMA_CHANNEL_COUNT][TASK_MULTIPLIER*2];
 
 void *dma_read (void *index) {
     uint64_t index_int = (uint64_t)index;
-    read(fd[index_int], checker[index_int], sizeof(checker[index_int]));
+    read(fd[index_int & 0xFFFFFFFF],
+        checker[index_int & 0xFFFFFFFF][index_int >> 32],
+        sizeof(checker[index_int & 0xFFFFFFFF][index_int >> 32]));
 }
 void *dma_write (void *index) {
     uint64_t index_int = (uint64_t)index;
-    write(fd[index_int], kal[index_int], sizeof(kal[index_int]));
+    write(fd[index_int & 0xFFFFFFFF],
+        kal[index_int & 0xFFFFFFFF][index_int >> 32],
+        sizeof(kal[index_int & 0xFFFFFFFF][index_int >> 32]));
 }
 
 void *dma_test_parallel (void *index) {
-    uint64_t index_int = (uint64_t)index;
+    uint64_t index_int = (uint64_t)index & 0xFFFFFFFF;
 
-    pthread_create(&subthreads[index_int][0], NULL, dma_read, (void *)index_int);
-    pthread_create(&subthreads[index_int][1], NULL, dma_write, (void *)index_int);
+    for (uint64_t i = 0; i < TASK_MULTIPLIER; i++) {
+        pthread_create(&subthreads[index_int][i*2], NULL, dma_read, (void *)(index_int | (i << 32)));
+        pthread_create(&subthreads[index_int][i*2+1], NULL, dma_write, (void *)(index_int | (i << 32)));
+    }
+    for (uint64_t i = 0; i < TASK_MULTIPLIER; i++) {
+        pthread_join(subthreads[index_int][i*2]  , NULL);
+        pthread_join(subthreads[index_int][i*2+1], NULL);
+    }
 
-    pthread_join(subthreads[index_int][0], NULL);
-    pthread_join(subthreads[index_int][1], NULL);
 }
 
 void *dma_test (void *index) {
     int index_int = (uint64_t)index;
-    write(fd[index_int], kal[index_int], sizeof(kal[index_int]));
-    read(fd[index_int], checker[index_int], sizeof(checker[index_int]));
+    for (int i = 0; i < TASK_MULTIPLIER; i++) {
+        write(fd[index_int], kal[index_int][i], sizeof(kal[index_int][i]));
+        read(fd[index_int], checker[index_int][i], sizeof(checker[index_int][i]));
+    }
 }
 
 int main (int argc, char **argv) {
@@ -80,9 +91,11 @@ int main (int argc, char **argv) {
 
 
     for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-        for (int j = 0; j < ARRAY_SIZE; j++) {
-            kal[i][j] = j * (i + 1);
-            checker[i][j] = 0;
+        for (int j = 0; j < TASK_MULTIPLIER; j++) {
+            for (int k = 0; k < ARRAY_SIZE; k++) {
+                kal[i][j][k] = i * DMA_CHANNEL_COUNT + j * TASK_MULTIPLIER + k;
+                checker[i][j][k] = 0;
+            }
         }
     }
     printf("All channels initialized data\n");
@@ -119,16 +132,20 @@ int main (int argc, char **argv) {
         }
 
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-            for (int j = 0; j < ARRAY_SIZE; j++) {
-                if (kal[i][j] != checker[i][j]) {
-                    fail[i]++;
+            for (int j = 0; j < TASK_MULTIPLIER; j++) {
+                for (int k = 0; k < ARRAY_SIZE; k++) {
+                    if (kal[i][j][k] != checker[i][j][k]) {
+                        fail[i]++;
+                    }
                 }
             }
         }
 
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-            for (int j = 0; j < ARRAY_SIZE; j++) {
-                checker[i][j] = 0;
+            for (int j = 0; j < TASK_MULTIPLIER; j++) {
+                for (int k = 0; k < ARRAY_SIZE; k++) {
+                    checker[i][j][k] = 0;
+                }
             }
         }
 
