@@ -108,7 +108,7 @@ module toplevel(
 assign FAN_CTRL = 1;
 
 
-parameter     DMA_ECHODEVICE                        = 0         ;
+parameter     DMA_ECHODEVICE                        = 1         ;
 parameter     DMA_CHANNEL_COUNT                     = 8         ;
 
 parameter     DMA_BYTES_WIDTH                       = 22        ;

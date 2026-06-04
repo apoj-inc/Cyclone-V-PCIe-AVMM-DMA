@@ -105,7 +105,7 @@ set_instance_parameter_value decoder {AVMM_BURST_WIDTH} {6}
 set_instance_parameter_value decoder {AVMM_DATA_WIDTH} {128}
 
 add_instance env_csr avmm_exporter 1.0
-set_instance_parameter_value env_csr {AVMM_ADDR_WIDTH} {12}
+set_instance_parameter_value env_csr {AVMM_ADDR_WIDTH} {13}
 set_instance_parameter_value env_csr {AVMM_BURST_WIDTH} {6}
 set_instance_parameter_value env_csr {AVMM_DATA_WIDTH} {128}
 

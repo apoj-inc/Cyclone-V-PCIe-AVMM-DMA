@@ -183,7 +183,7 @@ module avmm_dma_echodevice #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
 
         .BAR_DATA_WIDTH    (BAR_DATA_WIDTH   ),
-        .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH   )
+        .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH+1 )
     ) example_csr (
         .clk                  (clk  ),
         .rst_n                (rst_n),
