@@ -107,6 +107,11 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
         return -ENOMEM;
     }
 
+    uint32_t task_fifo_free = ioread32(bar2_ptr + 0x4);
+    if (task_fifo_free == 0) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d fail - no free spaces in DMAWR-FIFO\n", channel);
+        return -ENOMEM;
+    }
     iowrite64((((uint64_t)len) << 32) | 0, bar2_ptr + 0x1000 + channel*0x10);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d command sent\n", channel);
 
@@ -186,6 +191,11 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
         return not_copied;
     }
 
+    uint32_t task_fifo_free = ioread32(bar2_ptr + 0x8);
+    if (task_fifo_free == 0) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d fail - no free spaces in DMARD-FIFO\n", channel);
+        return -ENOMEM;
+    }
     iowrite64((((uint64_t)(len-not_copied)) << 32) | 0, bar2_ptr + 0x1008 + channel*0x10);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d command sent\n", channel);
 

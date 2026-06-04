@@ -192,8 +192,8 @@ module avmm_dma_interchannel #(
                 .DATA_WIDTH (TX_DATA_WIDTH  ),
                 .FIFO_DEPTH (DMA_RQ_DEPTH[i])
             ) fifo_rd (
-                .ACLK    (clk  ),
-                .ARESETn (rst_n),
+                .ACLK    (clk       ),
+                .ARESETn (dma_resetn),
 
                 .data_i  (dma_rddata_data [i]),
                 .valid_i (dma_rddata_valid[i]),
@@ -210,8 +210,8 @@ module avmm_dma_interchannel #(
                 .DATA_WIDTH (TX_DATA_WIDTH  ),
                 .FIFO_DEPTH (1024)
             ) file (
-                .ACLK    (clk  ),
-                .ARESETn (rst_n),
+                .ACLK    (clk       ),
+                .ARESETn (dma_resetn),
 
                 .data_i  (file_wr_data ),
                 .valid_i (file_wr_valid),
@@ -228,8 +228,8 @@ module avmm_dma_interchannel #(
                 .DATA_WIDTH (TX_DATA_WIDTH  ),
                 .FIFO_DEPTH (DMA_WQ_DEPTH[i])
             ) fifo_wr (
-                .ACLK    (clk  ),
-                .ARESETn (rst_n),
+                .ACLK    (clk       ),
+                .ARESETn (dma_resetn),
 
                 .data_i  (file_rd_data ),
                 .valid_i (file_rd_valid),

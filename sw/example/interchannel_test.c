@@ -96,7 +96,11 @@ int main (int argc, char **argv) {
         return csr_fd;
     }
     uint32_t writedata = 0;
+    uint32_t readdata;
     pwrite(csr_fd, &writedata, 4, (off_t)0xC);
+    do {
+        pread(csr_fd, &readdata, 4, (off_t)0xC);
+    } while (readdata != 0x1);
     printf("DMA controller reset\n");
 
     for (int iter = 0; iter < iteration_count; iter++) {

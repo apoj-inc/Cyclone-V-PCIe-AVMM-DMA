@@ -108,7 +108,7 @@ module toplevel(
 assign FAN_CTRL = 1;
 
 
-parameter     DMA_ECHODEVICE                        = 1         ;
+parameter     DMA_ECHODEVICE                        = 0         ;
 parameter     DMA_CHANNEL_COUNT                     = 8         ;
 
 parameter     DMA_BYTES_WIDTH                       = 22        ;
@@ -117,7 +117,7 @@ parameter     DMA_OFFFSET_WIDTH                     = 22        ;
 parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{8 {16 }};
 parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {64 }};
 parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {64 }};
-parameter int DMA_TQ_DEPTH                          = 16        ;
+parameter int DMA_TQ_DEPTH                          = 8         ;
 
 parameter int MAX_WQ_DEPTH                          = 64        ;
 parameter int MAX_RQ_DEPTH                          = 64        ;
@@ -186,7 +186,7 @@ logic         env_csr_m_read                    ;
 logic         env_csr_m_write                   ;
 logic         env_csr_m_readdatavalid           ;
 logic         env_csr_m_waitrequest             ;
-logic [11:0]  env_csr_m_address                 ;
+logic [12:0]  env_csr_m_address                 ;
 
 logic         dma_avmm_s_chipselect        [16] ;
 logic [15:0]  dma_avmm_s_byteenable        [16] ;
