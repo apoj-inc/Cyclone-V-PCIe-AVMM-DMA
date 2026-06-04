@@ -10,7 +10,7 @@
 
 #define ARRAY_SIZE (uint64_t)(1024*16/8)
 #define DMA_CHANNEL_COUNT 8
-#define TASK_MULTIPLIER (16/DMA_CHANNEL_COUNT)
+#define TASK_MULTIPLIER 1000
 
 uint64_t kal[DMA_CHANNEL_COUNT][TASK_MULTIPLIER][ARRAY_SIZE];
 uint64_t checker[DMA_CHANNEL_COUNT][TASK_MULTIPLIER][ARRAY_SIZE];
@@ -35,14 +35,11 @@ void *dma_write (void *index) {
 void *dma_test_parallel (void *index) {
     uint64_t index_int = (uint64_t)index & 0xFFFFFFFF;
 
-    for (uint64_t i = 0; i < TASK_MULTIPLIER; i++) {
-        pthread_create(&subthreads[index_int][i*2], NULL, dma_read, (void *)(index_int | (i << 32)));
-        pthread_create(&subthreads[index_int][i*2+1], NULL, dma_write, (void *)(index_int | (i << 32)));
-    }
-    for (uint64_t i = 0; i < TASK_MULTIPLIER; i++) {
-        pthread_join(subthreads[index_int][i*2]  , NULL);
-        pthread_join(subthreads[index_int][i*2+1], NULL);
-    }
+    pthread_create(&subthreads[index_int][0], NULL, dma_read, (void *)(index_int));
+    pthread_create(&subthreads[index_int][1], NULL, dma_write, (void *)(index_int));
+
+    pthread_join(subthreads[index_int][0], NULL);
+    pthread_join(subthreads[index_int][1], NULL);
 
 }
 
@@ -131,8 +128,10 @@ int main (int argc, char **argv) {
             clock_gettime(CLOCK_MONOTONIC, &stop);
         }
 
+        int j_upper = parallel ? 1 : TASK_MULTIPLIER;
+
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-            for (int j = 0; j < TASK_MULTIPLIER; j++) {
+            for (int j = 0; j < j_upper; j++) {
                 for (int k = 0; k < ARRAY_SIZE; k++) {
                     if (kal[i][j][k] != checker[i][j][k]) {
                         fail[i]++;
@@ -142,7 +141,7 @@ int main (int argc, char **argv) {
         }
 
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
-            for (int j = 0; j < TASK_MULTIPLIER; j++) {
+            for (int j = 0; j < j_upper; j++) {
                 for (int k = 0; k < ARRAY_SIZE; k++) {
                     checker[i][j][k] = 0;
                 }
@@ -159,7 +158,7 @@ int main (int argc, char **argv) {
     }
     printf("\n");
 
-    uint64_t bitcount = (sizeof(kal) + sizeof(checker))*8*iteration_count;
+    uint64_t bitcount = (sizeof(kal) + sizeof(checker))*8*iteration_count / (parallel ? TASK_MULTIPLIER : 1);
     printf("Speed: %lf Gbit/sec\n", bitcount/elapsed);
 
     printf("Checking external interrupts\n");

@@ -108,7 +108,7 @@ module toplevel(
 assign FAN_CTRL = 1;
 
 
-parameter     DMA_ECHODEVICE                        = 1         ;
+parameter     DMA_ECHODEVICE                        = 0         ;
 parameter     DMA_CHANNEL_COUNT                     = 8         ;
 
 parameter     DMA_BYTES_WIDTH                       = 22        ;
@@ -167,26 +167,26 @@ logic         decoder_avmm_m_waitrequest        ;
 logic         decoder_avmm_m_write              ;
 logic [127:0] decoder_avmm_m_writedata          ;
 
-logic         user_msix_avmm_m_chipselect       ;
-logic [15:0]  user_msix_avmm_m_byteenable       ;
-logic [127:0] user_msix_avmm_m_readdata         ;
-logic [127:0] user_msix_avmm_m_writedata        ;
-logic         user_msix_avmm_m_read             ;
-logic         user_msix_avmm_m_write            ;
-logic [5:0]   user_msix_avmm_m_burstcount       ;
-logic         user_msix_avmm_m_readdatavalid    ;
-logic         user_msix_avmm_m_waitrequest      ;
-logic [63:0]  user_msix_avmm_m_address          ;
+logic         msix_avmm_s_chipselect            ;
+logic [15:0]  msix_avmm_s_byteenable            ;
+logic [127:0] msix_avmm_s_readdata              ;
+logic [127:0] msix_avmm_s_writedata             ;
+logic         msix_avmm_s_read                  ;
+logic         msix_avmm_s_write                 ;
+logic [5:0]   msix_avmm_s_burstcount            ;
+logic         msix_avmm_s_readdatavalid         ;
+logic         msix_avmm_s_waitrequest           ;
+logic [63:0]  msix_avmm_s_address               ;
 
-logic         env_csr_s_chipselect              ;
-logic [15:0]  env_csr_s_byteenable              ;
-logic [127:0] env_csr_s_readdata                ;
-logic [127:0] env_csr_s_writedata               ;
-logic         env_csr_s_read                    ;
-logic         env_csr_s_write                   ;
-logic         env_csr_s_readdatavalid           ;
-logic         env_csr_s_waitrequest             ;
-logic [11:0]  env_csr_s_address                 ;
+logic         env_csr_m_chipselect              ;
+logic [15:0]  env_csr_m_byteenable              ;
+logic [127:0] env_csr_m_readdata                ;
+logic [127:0] env_csr_m_writedata               ;
+logic         env_csr_m_read                    ;
+logic         env_csr_m_write                   ;
+logic         env_csr_m_readdatavalid           ;
+logic         env_csr_m_waitrequest             ;
+logic [11:0]  env_csr_m_address                 ;
 
 logic         dma_avmm_s_chipselect        [16] ;
 logic [15:0]  dma_avmm_s_byteenable        [16] ;
@@ -287,15 +287,15 @@ generate
             .dec_s_waitrequest         (decoder_avmm_m_waitrequest                          ),
             .dec_s_address             (decoder_avmm_m_address                              ),
 
-            .user_csr_s_chipselect     (env_csr_s_chipselect                                ),
-            .user_csr_s_byteenable     (env_csr_s_byteenable                                ),
-            .user_csr_s_readdata       (env_csr_s_readdata                                  ),
-            .user_csr_s_writedata      (env_csr_s_writedata                                 ),
-            .user_csr_s_read           (env_csr_s_read                                      ),
-            .user_csr_s_write          (env_csr_s_write                                     ),
-            .user_csr_s_readdatavalid  (env_csr_s_readdatavalid                             ),
-            .user_csr_s_waitrequest    (env_csr_s_waitrequest                               ),
-            .user_csr_s_address        (env_csr_s_address                                   ),
+            .user_csr_s_chipselect     (env_csr_m_chipselect                                ),
+            .user_csr_s_byteenable     (env_csr_m_byteenable                                ),
+            .user_csr_s_readdata       (env_csr_m_readdata                                  ),
+            .user_csr_s_writedata      (env_csr_m_writedata                                 ),
+            .user_csr_s_read           (env_csr_m_read                                      ),
+            .user_csr_s_write          (env_csr_m_write                                     ),
+            .user_csr_s_readdatavalid  (env_csr_m_readdatavalid                             ),
+            .user_csr_s_waitrequest    (env_csr_m_waitrequest                               ),
+            .user_csr_s_address        (env_csr_m_address                                   ),
 
             .tx_chipselect             (dma_avmm_s_chipselect        [0:DMA_CHANNEL_COUNT-1]),
             .tx_byteenable             (dma_avmm_s_byteenable        [0:DMA_CHANNEL_COUNT-1]),
@@ -308,16 +308,16 @@ generate
             .tx_waitrequest            (dma_avmm_s_waitrequest       [0:DMA_CHANNEL_COUNT-1]),
             .tx_address                (dma_avmm_s_address           [0:DMA_CHANNEL_COUNT-1]),
 
-            .user_msix_m_chipselect    (user_msix_avmm_m_chipselect                         ),
-            .user_msix_m_byteenable    (user_msix_avmm_m_byteenable                         ),
-            .user_msix_m_readdata      (user_msix_avmm_m_readdata                           ),
-            .user_msix_m_writedata     (user_msix_avmm_m_writedata                          ),
-            .user_msix_m_read          (user_msix_avmm_m_read                               ),
-            .user_msix_m_write         (user_msix_avmm_m_write                              ),
-            .user_msix_m_burstcount    (user_msix_avmm_m_burstcount                         ),
-            .user_msix_m_readdatavalid (user_msix_avmm_m_readdatavalid                      ),
-            .user_msix_m_waitrequest   (user_msix_avmm_m_waitrequest                        ),
-            .user_msix_m_address       (user_msix_avmm_m_address                            )
+            .msix_m_chipselect         (msix_avmm_s_chipselect                              ),
+            .msix_m_byteenable         (msix_avmm_s_byteenable                              ),
+            .msix_m_readdata           (msix_avmm_s_readdata                                ),
+            .msix_m_writedata          (msix_avmm_s_writedata                               ),
+            .msix_m_read               (msix_avmm_s_read                                    ),
+            .msix_m_write              (msix_avmm_s_write                                   ),
+            .msix_m_burstcount         (msix_avmm_s_burstcount                              ),
+            .msix_m_readdatavalid      (msix_avmm_s_readdatavalid                           ),
+            .msix_m_waitrequest        (msix_avmm_s_waitrequest                             ),
+            .msix_m_address            (msix_avmm_s_address                                 )
         );
     end
     else begin : interchannel
@@ -375,15 +375,15 @@ generate
             .dec_s_waitrequest         (decoder_avmm_m_waitrequest                          ),
             .dec_s_address             (decoder_avmm_m_address                              ),
 
-            .user_csr_s_chipselect     (env_csr_s_chipselect                                ),
-            .user_csr_s_byteenable     (env_csr_s_byteenable                                ),
-            .user_csr_s_readdata       (env_csr_s_readdata                                  ),
-            .user_csr_s_writedata      (env_csr_s_writedata                                 ),
-            .user_csr_s_read           (env_csr_s_read                                      ),
-            .user_csr_s_write          (env_csr_s_write                                     ),
-            .user_csr_s_readdatavalid  (env_csr_s_readdatavalid                             ),
-            .user_csr_s_waitrequest    (env_csr_s_waitrequest                               ),
-            .user_csr_s_address        (env_csr_s_address                                   ),
+            .user_csr_s_chipselect     (env_csr_m_chipselect                                ),
+            .user_csr_s_byteenable     (env_csr_m_byteenable                                ),
+            .user_csr_s_readdata       (env_csr_m_readdata                                  ),
+            .user_csr_s_writedata      (env_csr_m_writedata                                 ),
+            .user_csr_s_read           (env_csr_m_read                                      ),
+            .user_csr_s_write          (env_csr_m_write                                     ),
+            .user_csr_s_readdatavalid  (env_csr_m_readdatavalid                             ),
+            .user_csr_s_waitrequest    (env_csr_m_waitrequest                               ),
+            .user_csr_s_address        (env_csr_m_address                                   ),
 
             .tx_chipselect             (dma_avmm_s_chipselect        [0:DMA_CHANNEL_COUNT-1]),
             .tx_byteenable             (dma_avmm_s_byteenable        [0:DMA_CHANNEL_COUNT-1]),
@@ -396,16 +396,16 @@ generate
             .tx_waitrequest            (dma_avmm_s_waitrequest       [0:DMA_CHANNEL_COUNT-1]),
             .tx_address                (dma_avmm_s_address           [0:DMA_CHANNEL_COUNT-1]),
 
-            .user_msix_m_chipselect    (user_msix_avmm_m_chipselect                         ),
-            .user_msix_m_byteenable    (user_msix_avmm_m_byteenable                         ),
-            .user_msix_m_readdata      (user_msix_avmm_m_readdata                           ),
-            .user_msix_m_writedata     (user_msix_avmm_m_writedata                          ),
-            .user_msix_m_read          (user_msix_avmm_m_read                               ),
-            .user_msix_m_write         (user_msix_avmm_m_write                              ),
-            .user_msix_m_burstcount    (user_msix_avmm_m_burstcount                         ),
-            .user_msix_m_readdatavalid (user_msix_avmm_m_readdatavalid                      ),
-            .user_msix_m_waitrequest   (user_msix_avmm_m_waitrequest                        ),
-            .user_msix_m_address       (user_msix_avmm_m_address                            )
+            .msix_m_chipselect         (msix_avmm_s_chipselect                              ),
+            .msix_m_byteenable         (msix_avmm_s_byteenable                              ),
+            .msix_m_readdata           (msix_avmm_s_readdata                                ),
+            .msix_m_writedata          (msix_avmm_s_writedata                               ),
+            .msix_m_read               (msix_avmm_s_read                                    ),
+            .msix_m_write              (msix_avmm_s_write                                   ),
+            .msix_m_burstcount         (msix_avmm_s_burstcount                              ),
+            .msix_m_readdatavalid      (msix_avmm_s_readdatavalid                           ),
+            .msix_m_waitrequest        (msix_avmm_s_waitrequest                             ),
+            .msix_m_address            (msix_avmm_s_address                                 )
         );
     end
 endgenerate
@@ -434,16 +434,16 @@ my_pcie u_my_pcie (
         .decoder_avmm_m_waitrequest                               (decoder_avmm_m_waitrequest         ),
         .decoder_avmm_m_write                                     (decoder_avmm_m_write               ),
         .decoder_avmm_m_writedata                                 (decoder_avmm_m_writedata           ),
-        .env_csr_avmm_m_address                                   (env_csr_s_address                  ),
-        .env_csr_avmm_m_burstcount                                (env_csr_s_burstcount               ),
-        .env_csr_avmm_m_byteenable                                (env_csr_s_byteenable               ),
-        .env_csr_avmm_m_chipselect                                (env_csr_s_chipselect               ),
-        .env_csr_avmm_m_read                                      (env_csr_s_read                     ),
-        .env_csr_avmm_m_readdata                                  (env_csr_s_readdata                 ),
-        .env_csr_avmm_m_readdatavalid                             (env_csr_s_readdatavalid            ),
-        .env_csr_avmm_m_waitrequest                               (env_csr_s_waitrequest              ),
-        .env_csr_avmm_m_write                                     (env_csr_s_write                    ),
-        .env_csr_avmm_m_writedata                                 (env_csr_s_writedata                ),
+        .env_csr_avmm_m_address                                   (env_csr_m_address                  ),
+        .env_csr_avmm_m_burstcount                                (env_csr_m_burstcount               ),
+        .env_csr_avmm_m_byteenable                                (env_csr_m_byteenable               ),
+        .env_csr_avmm_m_chipselect                                (env_csr_m_chipselect               ),
+        .env_csr_avmm_m_read                                      (env_csr_m_read                     ),
+        .env_csr_avmm_m_readdata                                  (env_csr_m_readdata                 ),
+        .env_csr_avmm_m_readdatavalid                             (env_csr_m_readdatavalid            ),
+        .env_csr_avmm_m_waitrequest                               (env_csr_m_waitrequest              ),
+        .env_csr_avmm_m_write                                     (env_csr_m_write                    ),
+        .env_csr_avmm_m_writedata                                 (env_csr_m_writedata                ),
         .dma_0_avmm_s_chipselect                                  (dma_avmm_s_chipselect          [0] ),
         .dma_0_avmm_s_byteenable                                  (dma_avmm_s_byteenable          [0] ),
         .dma_0_avmm_s_readdata                                    (dma_avmm_s_readdata            [0] ),
@@ -604,16 +604,16 @@ my_pcie u_my_pcie (
         .dma_15_avmm_s_readdatavalid                              (dma_avmm_s_readdatavalid       [15]),
         .dma_15_avmm_s_waitrequest                                (dma_avmm_s_waitrequest         [15]),
         .dma_15_avmm_s_address                                    (dma_avmm_s_address             [15]),
-        .user_msi_avmm_s_address                                  (user_msix_avmm_m_address           ),
-        .user_msi_avmm_s_burstcount                               (user_msix_avmm_m_burstcount        ),
-        .user_msi_avmm_s_byteenable                               (user_msix_avmm_m_byteenable        ),
-        .user_msi_avmm_s_chipselect                               (user_msix_avmm_m_chipselect        ),
-        .user_msi_avmm_s_read                                     (user_msix_avmm_m_read              ),
-        .user_msi_avmm_s_readdata                                 (user_msix_avmm_m_readdata          ),
-        .user_msi_avmm_s_readdatavalid                            (user_msix_avmm_m_readdatavalid     ),
-        .user_msi_avmm_s_waitrequest                              (user_msix_avmm_m_waitrequest       ),
-        .user_msi_avmm_s_write                                    (user_msix_avmm_m_write             ),
-        .user_msi_avmm_s_writedata                                (user_msix_avmm_m_writedata         ),
+        .user_msi_avmm_s_address                                  (msix_avmm_s_address                ),
+        .user_msi_avmm_s_burstcount                               (msix_avmm_s_burstcount             ),
+        .user_msi_avmm_s_byteenable                               (msix_avmm_s_byteenable             ),
+        .user_msi_avmm_s_chipselect                               (msix_avmm_s_chipselect             ),
+        .user_msi_avmm_s_read                                     (msix_avmm_s_read                   ),
+        .user_msi_avmm_s_readdata                                 (msix_avmm_s_readdata               ),
+        .user_msi_avmm_s_readdatavalid                            (msix_avmm_s_readdatavalid          ),
+        .user_msi_avmm_s_waitrequest                              (msix_avmm_s_waitrequest            ),
+        .user_msi_avmm_s_write                                    (msix_avmm_s_write                  ),
+        .user_msi_avmm_s_writedata                                (msix_avmm_s_writedata              ),
         .msix_avmm_m_address                                      (msix_avmm_m_address                ),
         .msix_avmm_m_burstcount                                   (msix_avmm_m_burstcount             ),
         .msix_avmm_m_chipselect                                   (msix_avmm_m_chipselect             ),

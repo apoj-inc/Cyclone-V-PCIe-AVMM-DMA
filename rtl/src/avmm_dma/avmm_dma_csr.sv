@@ -147,6 +147,8 @@ module avmm_dma_csr #(
     endgenerate
 
     always_comb begin
+        translated_addr = avmm_s_address + (0 << 2);
+        translated_wdata = avmm_s_writedata[(0 << 5) +: 32];
         for (int i = BAR_DATA_BYTES/4 - 1; i >= 0; i--) begin
             if (word_enable[i]) begin
                 translated_addr = avmm_s_address + (i << 2);
