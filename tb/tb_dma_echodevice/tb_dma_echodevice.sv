@@ -81,7 +81,7 @@ logic                       user_csr_s_read                         ;
 logic                       user_csr_s_write                        ;
 logic                       user_csr_s_readdatavalid                ;
 logic                       user_csr_s_waitrequest                  ;
-logic [BAR_ADDR_WIDTH-1:0]  user_csr_s_address                      ;
+logic [BAR_ADDR_WIDTH:0]    user_csr_s_address                      ;
 
 logic [MSIX_COUNT-1:0]      user_irq_i                              ;
 

@@ -69,7 +69,7 @@ module avmm_dma_echodevice #(
     input  logic                       user_csr_s_write                            ,
     output logic                       user_csr_s_readdatavalid                    ,
     output logic                       user_csr_s_waitrequest                      ,
-    input  logic [BAR_ADDR_WIDTH-1:0]  user_csr_s_address                          ,
+    input  logic [BAR_ADDR_WIDTH:0]    user_csr_s_address                          ,
 
     // User MSIX AVMM master bus
     output logic                       msix_m_chipselect                           ,

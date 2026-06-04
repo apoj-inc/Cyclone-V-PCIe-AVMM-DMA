@@ -37,12 +37,19 @@ module avmm_dma_task_transport #(
 
     logic dmawr_task_ready, dmard_task_ready;
 
-    logic                               dmawr_task_valid_rd  , dmard_task_valid_rd  ;
-    logic                               dmawr_task_ready_rd  , dmard_task_ready_rd  ;
-    logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dmawr_task_channel_rd, dmard_task_channel_rd;
-    logic [DMA_BURST_WIDTH-1:0]         dmawr_task_burst_rd  , dmard_task_burst_rd  ;
-    logic [DMA_OFFFSET_WIDTH-1:0]       dmawr_task_offset_rd , dmard_task_offset_rd ;
-    logic                               dmawr_task_write_rd  , dmard_task_write_rd  ;
+    logic                               dmawr_task_valid_rd  , dmawr_task_valid_sk  ;
+    logic                               dmawr_task_ready_rd  , dmawr_task_ready_sk  ;
+    logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dmawr_task_channel_rd, dmawr_task_channel_sk;
+    logic [DMA_BURST_WIDTH-1:0]         dmawr_task_burst_rd  , dmawr_task_burst_sk  ;
+    logic [DMA_OFFFSET_WIDTH-1:0]       dmawr_task_offset_rd , dmawr_task_offset_sk ;
+    logic                               dmawr_task_write_rd  , dmawr_task_write_sk  ;
+
+    logic                               dmard_task_valid_rd  , dmard_task_valid_sk  ;
+    logic                               dmard_task_ready_rd  , dmard_task_ready_sk  ;
+    logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dmard_task_channel_rd, dmard_task_channel_sk;
+    logic [DMA_BURST_WIDTH-1:0]         dmard_task_burst_rd  , dmard_task_burst_sk  ;
+    logic [DMA_OFFFSET_WIDTH-1:0]       dmard_task_offset_rd , dmard_task_offset_sk ;
+    logic                               dmard_task_write_rd  , dmard_task_write_sk  ;
 
     logic [DMA_CHANNEL_COUNT-1:0] dmawr_task_valid_demuxed                     ;
     logic [DMA_CHANNEL_COUNT-1:0] dmawr_task_ready_demuxed                     ;
@@ -79,6 +86,25 @@ module avmm_dma_task_transport #(
         .count_o (                                                                                       ) // NC
     );
 
+    // Skid
+    stream_fifo #(
+        .DATA_WIDTH (1 + DMA_CHANNEL_COUNT_WIDTH + DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH),
+        .FIFO_DEPTH (1)
+    ) u_stream_fifo_dmawr_skid (
+        .ACLK    (clk                                                                                    ),
+        .ARESETn (rst_n                                                                                  ),
+
+        .data_i  ({dmawr_task_write_rd, dmawr_task_channel_rd, dmawr_task_burst_rd, dmawr_task_offset_rd}),
+        .valid_i (dmawr_task_valid_rd                                                                    ),
+        .ready_o (dmawr_task_ready_rd                                                                    ),
+        .free_o  (                                                                                       ), // NC
+
+        .data_o  ({dmawr_task_write_sk, dmawr_task_channel_sk, dmawr_task_burst_sk, dmawr_task_offset_sk}),
+        .valid_o (dmawr_task_valid_sk                                                                    ),
+        .ready_i (dmawr_task_ready_sk                                                                    ),
+        .count_o (                                                                                       ) // NC
+    );
+
     avmm_dma_task_demux #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
         .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
@@ -92,12 +118,12 @@ module avmm_dma_task_transport #(
         .clk                   (clk                       ),
         .rst_n                 (rst_n                     ),
 
-        .in_dma_task_valid_i   (dmawr_task_valid_rd       ),
-        .in_dma_task_ready_o   (dmawr_task_ready_rd       ),
-        .in_dma_task_channel_i (dmawr_task_channel_rd     ),
-        .in_dma_task_burst_i   (dmawr_task_burst_rd       ),
-        .in_dma_task_offset_i  (dmawr_task_offset_rd      ),
-        .in_dma_task_write_i   (dmawr_task_write_rd       ),
+        .in_dma_task_valid_i   (dmawr_task_valid_sk       ),
+        .in_dma_task_ready_o   (dmawr_task_ready_sk       ),
+        .in_dma_task_channel_i (dmawr_task_channel_sk     ),
+        .in_dma_task_burst_i   (dmawr_task_burst_sk       ),
+        .in_dma_task_offset_i  (dmawr_task_offset_sk      ),
+        .in_dma_task_write_i   (dmawr_task_write_sk       ),
 
         .out_dma_task_valid_o  (dmawr_task_valid_demuxed  ),
         .out_dma_task_ready_i  (dmawr_task_ready_demuxed  ),
@@ -125,6 +151,25 @@ module avmm_dma_task_transport #(
         .ready_i (dmard_task_ready_rd                                                                    ),
         .count_o (                                                                                       ) // NC
     );
+    
+    // Skid
+    stream_fifo #(
+        .DATA_WIDTH (1 + DMA_CHANNEL_COUNT_WIDTH + DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH),
+        .FIFO_DEPTH (1)
+    ) u_stream_fifo_dmard_skid (
+        .ACLK    (clk                                                                                    ),
+        .ARESETn (rst_n                                                                                  ),
+
+        .data_i  ({dmard_task_write_rd, dmard_task_channel_rd, dmard_task_burst_rd, dmard_task_offset_rd}),
+        .valid_i (dmard_task_valid_rd                                                                    ),
+        .ready_o (dmard_task_ready_rd                                                                    ),
+        .free_o  (                                                                                       ),
+
+        .data_o  ({dmard_task_write_sk, dmard_task_channel_sk, dmard_task_burst_sk, dmard_task_offset_sk}),
+        .valid_o (dmard_task_valid_sk                                                                    ),
+        .ready_i (dmard_task_ready_sk                                                                    ),
+        .count_o (                                                                                       ) // NC
+    );
 
     avmm_dma_task_demux #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
@@ -139,12 +184,12 @@ module avmm_dma_task_transport #(
         .clk                   (clk                       ),
         .rst_n                 (rst_n                     ),
 
-        .in_dma_task_valid_i   (dmard_task_valid_rd       ),
-        .in_dma_task_ready_o   (dmard_task_ready_rd       ),
-        .in_dma_task_channel_i (dmard_task_channel_rd     ),
-        .in_dma_task_burst_i   (dmard_task_burst_rd       ),
-        .in_dma_task_offset_i  (dmard_task_offset_rd      ),
-        .in_dma_task_write_i   (dmard_task_write_rd       ),
+        .in_dma_task_valid_i   (dmard_task_valid_sk       ),
+        .in_dma_task_ready_o   (dmard_task_ready_sk       ),
+        .in_dma_task_channel_i (dmard_task_channel_sk     ),
+        .in_dma_task_burst_i   (dmard_task_burst_sk       ),
+        .in_dma_task_offset_i  (dmard_task_offset_sk      ),
+        .in_dma_task_write_i   (dmard_task_write_sk       ),
 
         .out_dma_task_valid_o  (dmard_task_valid_demuxed  ),
         .out_dma_task_ready_i  (dmard_task_ready_demuxed  ),
