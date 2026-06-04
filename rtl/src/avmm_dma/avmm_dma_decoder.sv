@@ -143,12 +143,7 @@ module avmm_dma_decoder #(
                 state_next = IDLE;
             end
             GENERATE_DMAWR, GENERATE_DMARD: begin
-                if (dma_task_valid_o && dma_task_ready_i) begin
-                    state_next = IDLE;
-                end
-                else begin
-                    state_next = state;
-                end
+                state_next = IDLE;
             end
             default: begin
                 state_next = IDLE;
@@ -203,10 +198,8 @@ module avmm_dma_decoder #(
                 avmm_s_readdatavalid_next = '0;
             end
             GENERATE_DMAWR, GENERATE_DMARD: begin
-                if (dma_task_valid_o && dma_task_ready_i) begin
-                    avmm_s_waitrequest_next = '0;
-                    dma_task_valid_next = '0;
-                end
+                avmm_s_waitrequest_next = '0;
+                dma_task_valid_next = '0;
             end
             default: begin
             end
