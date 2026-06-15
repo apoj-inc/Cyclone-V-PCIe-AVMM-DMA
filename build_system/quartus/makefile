@@ -13,7 +13,8 @@ FILES_SDC_PATH ?= $(CURDIR)/sdc/lists/files_sdc.lst
 NAMES_QSYS_PATH ?= $(CURDIR)/fpga/quartus/qsys/lists/names_qsys.lst
 NAMES_QSYS := $(foreach name,$(shell cat $(NAMES_QSYS_PATH) | tr '\n' ' '), $(VARS_TCL_PATH)/$(shell basename $(name)).qsys)
 
-CUSTOM_IP_PATH ?= $(CURDIR)/fpga/quartus/custom_ip
+CUSTOM_IP_PATH ?= $(CURDIR)/fpga/quartus/custom_ip/lists/ip_paths.lst
+CUSTOM_IP := $(shell cat $(NAMES_QSYS_PATH) | tr '\n' ',')
 
 CUSTOM_ASSIGNMENTS ?= custom_assignments.tcl
 
@@ -59,10 +60,10 @@ $(NAMES_QSYS): $(shell find $(CURDIR)/fpga/quartus/qsys -type f | tr '\n' ' ')
 	
 	@cd $(VARS_TCL_PATH);\
 	for name in $$(cat $(NAMES_QSYS_PATH)); do\
-		$$QSYS_ROOTDIR/qsys-script --script=$(CURDIR)/$$name.tcl --search-path=$(CUSTOM_IP_PATH),$$;\
+		$$QSYS_ROOTDIR/qsys-script --script=$(CURDIR)/$$name.tcl --search-path=$(CUSTOM_IP),$$;\
 	done;\
 	for name in $$(cat $(NAMES_QSYS_PATH)); do\
-		$$QSYS_ROOTDIR/qsys-generate --synthesis=VERILOG $$(basename "$$name.qsys") --search-path=$(CUSTOM_IP_PATH),$$;\
+		$$QSYS_ROOTDIR/qsys-generate --synthesis=VERILOG $$(basename "$$name.qsys") --search-path=$(CUSTOM_IP),$$;\
 	done;\
 
 program: $(VARS_TCL_PATH)/output_files/$(TOPLEVEL).sof
