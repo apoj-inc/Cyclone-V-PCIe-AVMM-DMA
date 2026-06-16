@@ -12,4 +12,4 @@ rtl/src/primitives/stream_fifo.sv
 rtl/src/example/external_csr.sv
 rtl/src/example/avmm_dma_echodevice.sv
 rtl/src/example/avmm_dma_interchannel.sv
-rtl/src/toplevel.sv
+rtl/src/avmm_dma_example_top.sv

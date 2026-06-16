@@ -32,7 +32,7 @@
 // ============================================================================
 `define ENABLE_PCIE
 
-module toplevel(
+module avmm_dma_example_top(
 
     //////////// CLOCK //////////
     input                           CLOCK_50_B3B,
