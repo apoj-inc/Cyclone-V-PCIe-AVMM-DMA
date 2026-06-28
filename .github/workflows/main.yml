@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  ALTERA_TOOLS_ARGS: "--mount type=bind,src=$PWD,dst=/mnt/work --mac-address=${{ secrets.LM_LICENSE_MAC }} --workdir=/mnt/work --network=bridge"
+
+jobs:
+  build_docker_test_image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build test image
+        uses: docker/build-push-action@v6
+        with:
+          context: "build_system/.docker/altera_tools"
+          target: test
+          tags: |
+            altera_tools-dev:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=${{ runner.temp }}/altera_tools-dev.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: altera_tools-dev
+          path: ${{ runner.temp }}/altera_tools-dev.tar
+          
+  test_docker_test_image:
+    runs-on: ubuntu-latest
+    needs: build_docker_test_image
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: altera_tools-dev
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: |
+          docker load --input ${{ runner.temp }}/altera_tools-dev.tar
+          sudo rm -rf ${{ runner.temp }}/altera_tools-dev.tar
+          
+      - name: Run docker image tests
+        shell: bash
+        run: |
+          chmod +x build_system/autotest/configure
+          docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools-dev:latest "./build_system/autotest/configure --prefix=QUESTA; \
+          make -f build_system/cctb/makefile run; \
+          make -f build_system/autotest/makefile run_pytest TESTS_DIRS=tb/tb_dma_csr"
+        timeout-minutes: 15
+
+  build_altera_tools:
+    runs-on: ubuntu-latest
+    needs: build_docker_test_image
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: log in to docker hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.docker_username }}
+          password: ${{ secrets.dockerhub_token }}
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract SHA
+        id: meta
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        
+      - name: Build and push amd64-arch production image
+        uses: docker/build-push-action@v6
+        with:
+          context: "build_system/.docker/altera_tools"
+          platforms: linux/amd64
+          target: production
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/altera_tools:latest
+            ${{ secrets.DOCKER_USERNAME }}/altera_tools:${{ steps.meta.outputs.SHORT_SHA }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: false
+          outputs: type=docker,dest=${{ runner.temp }}/altera_tools.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: altera_tools
+          path: ${{ runner.temp }}/altera_tools.tar
+    
+  run_tests:
+    runs-on: ubuntu-latest
+    needs: build_docker_test_image
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: altera_tools-dev
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: |
+          docker load --input ${{ runner.temp }}/altera_tools-dev.tar
+          sudo rm -rf ${{ runner.temp }}/altera_tools-dev.tar
+        
+      - name: Run pytest
+        shell: bash
+        run: docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools-dev:latest "make -f build_system/autotest/makefile run_pytest"
+        timeout-minutes: 120
+  
+  check_releases:
+    runs-on: ubuntu-latest
+    needs: build_altera_tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: altera_tools
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: |
+          docker load --input ${{ runner.temp }}/altera_tools.tar
+          sudo rm -rf ${{ runner.temp }}/altera_tools.tar
+        
+      - name: Run build release
+        shell: bash
+        run: docker run ${{env.ALTERA_TOOLS_ARGS}} ${{ secrets.DOCKER_USERNAME }}/altera_tools:latest "make -f build_system/quartus/makefile create_releases"
+        timeout-minutes: 60
