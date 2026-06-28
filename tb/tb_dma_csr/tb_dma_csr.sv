@@ -10,16 +10,15 @@ parameter     BAR_ADDR_WIDTH                        = 12         ;
 parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{16{16  }};
 parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}};
 parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{1024}};
-parameter int DMA_TQ_DEPTH      [DMA_CHANNEL_COUNT] = '{16{16  }};
+parameter int DMA_TQ_DEPTH                          = 16         ;
 
 parameter int MAX_WQ_DEPTH                          = 1024       ;
 parameter int MAX_RQ_DEPTH                          = 1024       ;
-parameter int MAX_TQ_DEPTH                          = 16         ;
 
 parameter     BAR_DATA_BYTES                        = BAR_DATA_WIDTH / 8  ;
 parameter     DMA_WQ_ADDR_WIDTH                     = $clog2(MAX_WQ_DEPTH);
 parameter     DMA_RQ_ADDR_WIDTH                     = $clog2(MAX_RQ_DEPTH);
-parameter     DMA_TQ_ADDR_WIDTH                     = $clog2(MAX_TQ_DEPTH);
+parameter     DMA_TQ_ADDR_WIDTH                     = $clog2(DMA_TQ_DEPTH);
 
 
 parameter int BYTEENABLES[16] = '{
@@ -70,7 +69,8 @@ logic [BAR_ADDR_WIDTH-1:0]  avmm_s_address                          ;
 logic [63:0]                dma_addr_o           [DMA_CHANNEL_COUNT];
 logic [DMA_WQ_ADDR_WIDTH:0] wdata_fifo_count_i   [DMA_CHANNEL_COUNT];
 logic [DMA_RQ_ADDR_WIDTH:0] rdata_fifo_free_i    [DMA_CHANNEL_COUNT];
-logic [DMA_TQ_ADDR_WIDTH:0] task_fifo_free_i                        ;
+logic [DMA_TQ_ADDR_WIDTH:0] dmawr_task_free_i                       ;
+logic [DMA_TQ_ADDR_WIDTH:0] dmard_task_free_i                       ;
 
 logic [15:0] next_struct;
 logic [15:0] curr_struct;
@@ -87,8 +87,7 @@ avmm_dma_csr #(
     .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     ),
 
     .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
-    .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     ),
-    .MAX_TQ_DEPTH      (MAX_TQ_DEPTH     )
+    .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     )
 ) u_avmm_dma_csr (
     .clk                  (clk                 ),
     .rst_n                (rst_n               ),
@@ -107,7 +106,8 @@ avmm_dma_csr #(
 
     .wdata_fifo_count_i   (wdata_fifo_count_i  ),
     .rdata_fifo_free_i    (rdata_fifo_free_i   ),
-    .task_fifo_free_i     (task_fifo_free_i    )
+    .dmawr_task_free_i    (dmawr_task_free_i   ),
+    .dmard_task_free_i    (dmard_task_free_i   )
 );
 
 
@@ -216,13 +216,20 @@ initial begin
     rst_n = '1;
 
     @(posedge clk);
-    task_fifo_free_i = $urandom();
+    dmawr_task_free_i = $urandom();
+    dmard_task_free_i = $urandom();
 
     // Check TASK FIFO reg (rdonly)
     test_register32(
         .byteenable ('h00F0),
         .address    ('0),
-        .reset_val  (task_fifo_free_i),
+        .reset_val  (dmawr_task_free_i),
+        .rdonly     ('1)
+    );
+    test_register32(
+        .byteenable ('h0F00),
+        .address    ('0),
+        .reset_val  (dmard_task_free_i),
         .rdonly     ('1)
     );
 
@@ -278,23 +285,17 @@ initial begin
             .reset_val  (DMA_RQ_DEPTH[i]*DMA_WORD_BYTES[i]),
             .rdonly     ('1)
         );
-        test_register32(
-            .byteenable ('h0F00),
-            .address    (curr_struct+'h10),
-            .reset_val  (DMA_TQ_DEPTH[i]),
-            .rdonly     ('1)
-        );
         wdata_fifo_count_i[i] = $urandom();
         rdata_fifo_free_i [i] = $urandom();
         test_register32(
-            .byteenable ('hF000),
+            .byteenable ('h0F00),
             .address    (curr_struct+'h10),
             .reset_val  (wdata_fifo_count_i[i]),
             .rdonly     ('1)
         );
         test_register32(
-            .byteenable ('h000F),
-            .address    (curr_struct+'h20),
+            .byteenable ('hF000),
+            .address    (curr_struct+'h10),
             .reset_val  (rdata_fifo_free_i[i]),
             .rdonly     ('1)
         );
