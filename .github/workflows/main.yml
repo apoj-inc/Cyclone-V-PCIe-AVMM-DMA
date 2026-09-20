@@ -31,52 +31,16 @@ jobs:
         shell: bash
         run: |
           chmod +x build_system/autotest/configure
-          docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools-dev:latest "./build_system/autotest/configure --prefix=QUESTA; \
+          docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools:latest "./build_system/autotest/configure --prefix=QUESTA; \
           make -f build_system/cctb/makefile run; \
           make -f build_system/autotest/makefile run_pytest TESTS_DIRS=tb/tb_dma_csr"
         timeout-minutes: 15
-    
-  run_tests:
-    runs-on: ubuntu-latest
-    needs: pull_and_test_docker_test_image
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Log in to docker hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.docker_username }}
-          password: ${{ secrets.dockerhub_token }}
-
-      - name: Pull from docker hub
-        run: docker pull ${{ secrets.docker_username }}/altera_tools:latest
-        
-      - name: Run pytest
+      - name: Run full pytest
         shell: bash
-        run: docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools-dev:latest "make -f build_system/autotest/makefile run_pytest"
+        run: docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools:latest "make -f build_system/autotest/makefile run_pytest"
         timeout-minutes: 120
-  
-  check_releases:
-    runs-on: ubuntu-latest
-    needs: pull_and_test_docker_test_image
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Log in to docker hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.docker_username }}
-          password: ${{ secrets.dockerhub_token }}
-
-      - name: Pull from docker hub
-        run: docker pull ${{ secrets.docker_username }}/altera_tools:latest
-        
       - name: Run build release
         shell: bash
         run: docker run ${{env.ALTERA_TOOLS_ARGS}} ${{ secrets.DOCKER_USERNAME }}/altera_tools:latest "make -f build_system/quartus/makefile create_releases"
