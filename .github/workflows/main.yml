@@ -39,10 +39,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and push amd64-arch production image
+      - name: Build artifacts of docker image
         uses: docker/build-push-action@v7
         with:
           tags: ${{ secrets.DOCKER_USERNAME }}/altera_tools:latest
+          push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker,dest=${{ runner.temp }}/altera_tools-dev.tar
