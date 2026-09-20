@@ -31,14 +31,14 @@ jobs:
         shell: bash
         run: |
           chmod +x build_system/autotest/configure
-          docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools:latest "./build_system/autotest/configure --prefix=QUESTA; \
+          docker run ${{env.ALTERA_TOOLS_ARGS}} ${{ secrets.docker_username }}/altera_tools:latest "./build_system/autotest/configure --prefix=QUESTA; \
           make -f build_system/cctb/makefile run; \
           make -f build_system/autotest/makefile run_pytest TESTS_DIRS=tb/tb_dma_csr"
         timeout-minutes: 15
 
       - name: Run full pytest
         shell: bash
-        run: docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools:latest "make -f build_system/autotest/makefile run_pytest"
+        run: docker run ${{env.ALTERA_TOOLS_ARGS}} ${{ secrets.docker_username }}/altera_tools:latest "make -f build_system/autotest/makefile run_pytest"
         timeout-minutes: 120
 
       - name: Run build release
