@@ -24,10 +24,6 @@ jobs:
           username: ${{ secrets.docker_username }}
           password: ${{ secrets.dockerhub_token }}
 
-      - name: Pull from docker hub
-        shell: bash
-        run: docker pull ${{ secrets.docker_username }}/altera_tools:latest
-
       - name: Run docker image tests
         shell: bash
         run: |
@@ -49,7 +45,7 @@ jobs:
 
       - name: Archive artifacts
         shell: bash
-        run: tar -cvf ${{ runner.temp }}/logs.tar ${{ runner.temp }}/.cache
+        run: tar -cvf ${{ runner.temp }}/logs.tar ./.cache
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
