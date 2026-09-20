@@ -39,12 +39,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build test image
-        uses: docker/build-push-action@v6
-        with:
-          push: false
-          tags: altera_tools-dev:latest
-          outputs: type=docker,dest=${{ runner.temp }}/altera_tools-dev.tar
+      - name: Export image to tar
+        run: docker save -o ${{ runner.temp }}/altera_tools-dev.tar ${{ secrets.docker_username }}/altera_tools:latest
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
