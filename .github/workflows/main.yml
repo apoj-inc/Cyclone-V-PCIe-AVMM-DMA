@@ -29,7 +29,7 @@ jobs:
         run: |
           chmod +x build_system/autotest/configure
           docker run ${{env.ALTERA_TOOLS_ARGS}} ${{ secrets.docker_username }}/altera_tools:latest "./build_system/autotest/configure --prefix=QUESTA; \
-          make -f build_system/cctb/makefile run; \
+          make -f build_system/cctb/makefile run COCOTB_TOPLEVEL=tb_dma_csr; \
           make -f build_system/autotest/makefile run_pytest TESTS_DIRS=tb/tb_dma_csr"
         timeout-minutes: 15
 
