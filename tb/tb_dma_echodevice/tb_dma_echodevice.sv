@@ -676,6 +676,8 @@ initial begin
         end
         @(posedge clk);
     end
+    user_csr_s_chipselect = '0;
+    user_csr_s_write      = '0;
     while (user_msix_log.size() != MSIX_COUNT/2) begin
         @(posedge clk);
     end
@@ -695,6 +697,8 @@ initial begin
         end
         @(posedge clk);
     end
+    user_csr_s_chipselect = '0;
+    user_csr_s_write      = '0;
     while (user_msix_log.size() != (MSIX_COUNT-6)/2) begin
         @(posedge clk);
     end

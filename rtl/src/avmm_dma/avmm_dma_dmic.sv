@@ -57,17 +57,17 @@ module avmm_dma_dmic #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             irq_pending        <= '0;
-            irq_pending_to_arb <= '0;
         end        
         else begin
             irq_pending <= (irq_pending | (~irq_ff & irq_i)) & ~(irq_clear & irq_pending);
-
-            for (int i = 0; i < MSIX_COUNT; i++) begin
-                irq_pending_to_arb[i] <= irq_pending[i] & ~msix_mask_i[i][0];
-            end
         end
     end
 
+    always_comb begin
+        for (int i = 0; i < MSIX_COUNT; i++) begin
+            irq_pending_to_arb[i] = irq_pending[i] & ~msix_mask_i[i][0];
+        end
+    end
 
     logic [ST_1_ARB_CNT-1:0]     send_irq_st_1                ;
     logic [ST_1_ARB_CNT-1:0]     irq_sent_st_1                ;
