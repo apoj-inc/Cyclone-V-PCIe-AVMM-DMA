@@ -1,3 +1,6 @@
 [submodule "build_system"]
 	path = build_system
 	url = git@github.com:apoj-inc/build_system.git
+[submodule "submodules/src/rtl-lib"]
+	path = submodules/src/rtl-lib
+	url = git@github.com:apoj-inc/rtl-lib.git
