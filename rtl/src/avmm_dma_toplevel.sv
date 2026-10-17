@@ -55,7 +55,9 @@ module avmm_dma_toplevel #(
 
     input  logic                       user_irq_i                              ,
 
-    output logic                       dma_resetn_o                            
+    output logic                       dma_clk_o                               ,
+    output logic                       dma_resetn_o                            ,
+    output logic                       pcie_resetn_o                           
 
 );
 
@@ -120,6 +122,9 @@ logic [5:0]   dma_avmm_s_burstcount        [16] ;
 logic         dma_avmm_s_readdatavalid     [16] ;
 logic         dma_avmm_s_waitrequest       [16] ;
 logic [63:0]  dma_avmm_s_address           [16] ;
+
+assign dma_clk_o     = core_clk_clk      ;
+assign pcie_resetn_o = core_reset_reset_n;
 
 
 logic clock_50_rstn_r  /* synthesis ALTERA_ATTRIBUTE = "SUPPRESS_DA_RULE_INTERNAL=R102"  */;

@@ -201,7 +201,7 @@ module avmm_dma_echodevice #(
         .user_irq_o           (user_irq)
     );
 
-    avmm_dma_top #(
+    avmm_dma_assembly #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
 
         .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
@@ -221,7 +221,7 @@ module avmm_dma_echodevice #(
         .TX_DATA_WIDTH     (TX_DATA_WIDTH    ),
         .TX_ADDR_WIDTH     (TX_ADDR_WIDTH    ),
         .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
-    ) u_avmm_dma_top (
+    ) u_avmm_dma_assembly (
         .clk                  (clk                  ),
         .rst_n                (rst_n                ),
 

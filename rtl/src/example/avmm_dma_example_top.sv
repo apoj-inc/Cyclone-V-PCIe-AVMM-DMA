@@ -56,7 +56,9 @@ module avmm_dma_example_top(
 
     logic [DMA_CHANNEL_COUNT-1:0] user_irq;
 
-    logic dma_resetn;
+    logic dma_clk    ;
+    logic dma_resetn ;
+    logic pcie_resetn;
 
     generate
         genvar i;
@@ -75,7 +77,7 @@ module avmm_dma_example_top(
                 .DATA_WIDTH (TX_DATA_WIDTH  ),
                 .FIFO_DEPTH (DMA_RQ_DEPTH[i])
             ) fifo_rd (
-                .ACLK    (clk  ),
+                .ACLK    (dma_clk   ),
                 .ARESETn (dma_resetn),
 
                 .data_i  (dma_rddata_data [i]),
@@ -93,7 +95,7 @@ module avmm_dma_example_top(
                 .DATA_WIDTH (TX_DATA_WIDTH  ),
                 .FIFO_DEPTH (1024)
             ) file (
-                .ACLK    (clk  ),
+                .ACLK    (dma_clk   ),
                 .ARESETn (dma_resetn),
 
                 .data_i  (file_wr_data ),
@@ -111,7 +113,7 @@ module avmm_dma_example_top(
                 .DATA_WIDTH (TX_DATA_WIDTH  ),
                 .FIFO_DEPTH (DMA_WQ_DEPTH[i])
             ) fifo_wr (
-                .ACLK    (clk  ),
+                .ACLK    (dma_clk   ),
                 .ARESETn (dma_resetn),
 
                 .data_i  (file_rd_data ),
@@ -133,8 +135,8 @@ module avmm_dma_example_top(
         .BAR_DATA_WIDTH    (BAR_DATA_WIDTH   ),
         .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH+1 )
     ) example_csr (
-        .clk                  (clk  ),
-        .rst_n                (rst_n),
+        .clk                  (dma_clk    ),
+        .rst_n                (pcie_resetn),
 
         .avmm_s_chipselect    (user_csr_s_chipselect   ),
         .avmm_s_byteenable    (user_csr_s_byteenable   ),
@@ -200,8 +202,10 @@ module avmm_dma_example_top(
         .env_csr_m_address       (user_csr_s_address      ),
 
         .user_irq_i              (user_irq                ),
-
-        .dma_resetn_o            (dma_resetn              )
+        
+        .dma_clk_o               (dma_clk                 ),
+        .dma_resetn_o            (dma_resetn              ),
+        .pcie_resetn_o           (pcie_resetn             )
     );
 
 endmodule
