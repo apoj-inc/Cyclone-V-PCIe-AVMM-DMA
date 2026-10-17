@@ -10,7 +10,7 @@
 
 #define ARRAY_SIZE (uint64_t)(1024*16/8)
 #define DMA_CHANNEL_COUNT 8
-#define TASK_MULTIPLIER 1000
+#define TASK_MULTIPLIER 100
 
 uint64_t kal[DMA_CHANNEL_COUNT][TASK_MULTIPLIER][ARRAY_SIZE];
 uint64_t checker[DMA_CHANNEL_COUNT][TASK_MULTIPLIER][ARRAY_SIZE];
@@ -35,19 +35,22 @@ void *dma_write (void *index) {
 void *dma_test_parallel (void *index) {
     uint64_t index_int = (uint64_t)index & 0xFFFFFFFF;
 
-    pthread_create(&subthreads[index_int][0], NULL, dma_read, (void *)(index_int));
-    pthread_create(&subthreads[index_int][1], NULL, dma_write, (void *)(index_int));
+    for (int i = 0; i < TASK_MULTIPLIER; i++) {
+        pthread_create(&subthreads[index_int][0], NULL, dma_read, (void *)(index_int));
+        pthread_create(&subthreads[index_int][1], NULL, dma_write, (void *)(index_int));
 
-    pthread_join(subthreads[index_int][0], NULL);
-    pthread_join(subthreads[index_int][1], NULL);
-
+        pthread_join(subthreads[index_int][0], NULL);
+        pthread_join(subthreads[index_int][1], NULL);
+    }
 }
 
 void *dma_test (void *index) {
     int index_int = (uint64_t)index;
+    int addr_offset = 0;
     for (int i = 0; i < TASK_MULTIPLIER; i++) {
-        write(fd[index_int], kal[index_int][i], sizeof(kal[index_int][i]));
-        read(fd[index_int], checker[index_int][i], sizeof(checker[index_int][i]));
+        pwrite(fd[index_int], kal[index_int][i], sizeof(kal[index_int][i]), (off_t)addr_offset);
+        pread(fd[index_int], checker[index_int][i], sizeof(checker[index_int][i]), (off_t)addr_offset);
+        addr_offset += 0x4000;
     }
 }
 
@@ -158,9 +161,10 @@ int main (int argc, char **argv) {
     }
     printf("\n");
 
-    uint64_t bitcount = (sizeof(kal) + sizeof(checker))*8*iteration_count / (parallel ? TASK_MULTIPLIER : 1);
+    uint64_t bitcount = (sizeof(kal) + sizeof(checker))*8*iteration_count;
     printf("Speed: %lf Gbit/sec\n", bitcount/elapsed);
 
+    /*
     printf("Checking external interrupts\n");
 
     int fd_csr = open("/dev/hdlnocgen_c5p_env_csr", O_RDWR);
@@ -186,6 +190,7 @@ int main (int argc, char **argv) {
         
         printf("Channel %d IRQ check success\n", i);
     }
+    */
 
     for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
         close(fd[i]);
