@@ -10,12 +10,17 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/wait.h>
-#include <asm/param.h> 
+#include <linux/mutex.h>
+#include <asm/param.h>
 
 #define DRIVER_NAME "hdlnocgen_c5p_driver"
 #define DMA_BUFFER_SIZE 4194304
 
 DECLARE_WAIT_QUEUE_HEAD(dma_wq);
+
+// Task mutex
+struct mutex task_read_mutex;
+struct mutex task_write_mutex;
 
 //Device globs
 uint64_t b0_start, b0_size;
@@ -107,13 +112,17 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
         return -ENOMEM;
     }
 
+    //mutex_lock(&task_read_mutex);
     uint32_t task_fifo_free = ioread32(bar2_ptr + 0x4);
     if (task_fifo_free == 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d fail - no free spaces in DMAWR-FIFO\n", channel);
+        //mutex_unlock(&task_read_mutex);
         return -ENOMEM;
     }
-    iowrite64((((uint64_t)len) << 32) | 0, bar2_ptr + 0x1000 + channel*0x10);
+    iowrite64((((uint64_t)len) << 32) | (uint64_t)*off, bar2_ptr + 0x1000 + channel*0x10);
+    //mutex_unlock(&task_read_mutex);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d command sent\n", channel);
+
 
     uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_rd_flags[channel] == 1, HZ*2);
     if (!jiffies) {
@@ -127,7 +136,7 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
 
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d finished successfully\n", channel);
 
-    uint64_t not_copied = copy_to_user(user_buf, cpu_addr[channel], len);
+    uint64_t not_copied = copy_to_user(user_buf, cpu_addr[channel] + (uint64_t)*off, len);
 
     if (not_copied) {
         printk(KERN_WARNING "hdlnocgen_c5p_driver: %llu bytes of data failed to copy to kernel\n", not_copied);
@@ -184,19 +193,22 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
         return -ENOMEM;
     }
 
-    uint64_t not_copied = copy_from_user(cpu_addr[channel], user_buf, len);
+    uint64_t not_copied = copy_from_user(cpu_addr[channel] + (uint64_t)*off, user_buf, len);
 
     if (not_copied) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: %llu bytes of data failed to copy to kernel. No transfer\n", not_copied);
         return not_copied;
     }
 
+    //mutex_lock(&task_write_mutex);
     uint32_t task_fifo_free = ioread32(bar2_ptr + 0x8);
     if (task_fifo_free == 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d fail - no free spaces in DMARD-FIFO\n", channel);
+        //mutex_unlock(&task_write_mutex);
         return -ENOMEM;
     }
-    iowrite64((((uint64_t)(len-not_copied)) << 32) | 0, bar2_ptr + 0x1008 + channel*0x10);
+    iowrite64((((uint64_t)(len-not_copied)) << 32) | (uint64_t)*off, bar2_ptr + 0x1008 + channel*0x10);
+    //mutex_unlock(&task_write_mutex);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d command sent\n", channel);
 
     uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_wr_flags[channel] == 1, HZ*2);
@@ -224,6 +236,7 @@ static struct file_operations fops = {
 static struct pci_device_id my_driver_id_table[] = {
     { PCI_DEVICE(0x1172, 0xd800) },
     { PCI_DEVICE(0x1172, 0x00ff) },
+    { PCI_DEVICE(0x10ee, 0x7024) },
     {0,}
 };
 MODULE_DEVICE_TABLE(pci, my_driver_id_table);
@@ -282,18 +295,21 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     printk(KERN_INFO "hdlnocgen_c5p_driver: Device vid: 0x%X\n", vendor);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Device pid: 0x%X\n", device);
 
+    mutex_init(&task_read_mutex);
+    mutex_init(&task_write_mutex);
+
     // PCIe memory enable
     err = pci_enable_device_mem(pdev);
     if (err) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to enable PCIe device's memory\n");
-        goto pci_release_bar2;
+        goto destroy_mutex;
     }
 
     // PCIe device BAR[0] req
     err = pci_request_region(pdev, 0, DRIVER_NAME);
     if (err) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to reserve BAR0\n");
-        return err;
+        goto pci_disable;
     }
     // PCIe device BAR[2] req
     err = pci_request_region(pdev, 2, DRIVER_NAME);
@@ -316,7 +332,7 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     if (!bar0_ptr) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to ioremap BAR[0]...\n");
         err = -ENOMEM;
-        goto pci_disable;
+        goto pci_release_bar2;
     }
     bar2_ptr = ioremap(b2_start, b2_size);
     if (!bar2_ptr) {
@@ -378,8 +394,11 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
             goto unregister_user_irq;
         }
         printk(KERN_INFO "hdlnocgen_c5p_driver: Registered IRQ handler for user channel %d\n", i-dma_channel_count);
-        
         err_index = i + 1;
+    }
+    for (int i = 0; i < 4*(dma_channel_count); i++) {
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Interrupt address low %x\n", ioread32(bar0_ptr + i*2*4));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Interrupt address high %x\n", ioread32(bar0_ptr + (i*2+1)*4));
     }
 
     // Allocate DMA buffers
@@ -398,6 +417,8 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
 
         iowrite32(dma_handle[i], bar2_ptr + next_struct_addr + 4);
         iowrite32(dma_handle[i] >> 32, bar2_ptr + next_struct_addr + 8);
+        printk(KERN_INFO "hdlnocgen_c5p_driver: DMA addr low %x\n", ioread32(bar2_ptr + next_struct_addr + 4));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: DMA addr high %x\n", ioread32(bar2_ptr + next_struct_addr + 8));
         printk(KERN_INFO "hdlnocgen_c5p_driver: Wrote DMA addr for channel %d\n", i);
 
         next_struct_addr = ioread32(bar2_ptr + next_struct_addr);
@@ -513,6 +534,9 @@ pci_release_bar0:
     pci_release_region(pdev, 0);
 pci_disable:
     pci_disable_device(pdev);
+destroy_mutex:
+    mutex_destroy(&task_write_mutex);
+    mutex_destroy(&task_read_mutex);
 
     return err;
 }
@@ -576,6 +600,10 @@ static void hdlnocgen_dma_remove(struct pci_dev *pdev) {
 
     pci_disable_device(pdev);
     printk(KERN_INFO "hdlnocgen_c5p_driver: PCIe device disabled\n");
+
+    mutex_destroy(&task_write_mutex);
+    mutex_destroy(&task_read_mutex);
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Mutexes destroyed\n");
 
     printk(KERN_INFO "hdlnocgen_c5p_driver: User IRQs pending: ");
     for (int i = 0; i < dma_channel_count; i++) {

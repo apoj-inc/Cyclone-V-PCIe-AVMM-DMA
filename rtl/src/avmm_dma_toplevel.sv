@@ -25,39 +25,39 @@ module avmm_dma_toplevel #(
     parameter DMA_RQ_ADDR_WIDTH = $clog2(MAX_RQ_DEPTH)
 ) (
 
-    output logic                       FAN_CTRL                                ,
+    output logic                         FAN_CTRL                                ,
 
-    inout  logic                       PCIE_PERST_n                            ,
-    input  logic                       PCIE_REFCLK_p                           ,
-    input  logic [3:0]                 PCIE_RX_p                               ,
-    output logic [3:0]                 PCIE_TX_p                               ,
+    inout  logic                         PCIE_PERST_n                            ,
+    input  logic                         PCIE_REFCLK_p                           ,
+    input  logic [3:0]                   PCIE_RX_p                               ,
+    output logic [3:0]                   PCIE_TX_p                               ,
 
-    input  logic                       dma_wrdata_valid_i   [DMA_CHANNEL_COUNT],
-    output logic                       dma_wrdata_ready_o   [DMA_CHANNEL_COUNT],
-    input  logic [DMA_WQ_ADDR_WIDTH:0] dma_wrdata_count_i   [DMA_CHANNEL_COUNT],
-    input  logic [TX_DATA_WIDTH-1:0]   dma_wrdata_data_i    [DMA_CHANNEL_COUNT],
+    input  logic                         dma_wrdata_valid_i   [DMA_CHANNEL_COUNT],
+    output logic                         dma_wrdata_ready_o   [DMA_CHANNEL_COUNT],
+    input  logic [DMA_WQ_ADDR_WIDTH:0]   dma_wrdata_count_i   [DMA_CHANNEL_COUNT],
+    input  logic [TX_DATA_WIDTH-1:0]     dma_wrdata_data_i    [DMA_CHANNEL_COUNT],
 
-    output logic                       dma_rddata_valid_o   [DMA_CHANNEL_COUNT],
-    input  logic                       dma_rddata_ready_i   [DMA_CHANNEL_COUNT],
-    input  logic [DMA_RQ_ADDR_WIDTH:0] dma_rddata_free_i    [DMA_CHANNEL_COUNT],
-    output logic [TX_DATA_WIDTH-1:0]   dma_rddata_data_o    [DMA_CHANNEL_COUNT],
+    output logic                         dma_rddata_valid_o   [DMA_CHANNEL_COUNT],
+    input  logic                         dma_rddata_ready_i   [DMA_CHANNEL_COUNT],
+    input  logic [DMA_RQ_ADDR_WIDTH:0]   dma_rddata_free_i    [DMA_CHANNEL_COUNT],
+    output logic [TX_DATA_WIDTH-1:0]     dma_rddata_data_o    [DMA_CHANNEL_COUNT],
 
     
-    output logic                       env_csr_m_chipselect                    ,
-    output logic [BAR_DATA_BYTES-1:0]  env_csr_m_byteenable                    ,
-    input  logic [BAR_DATA_WIDTH-1:0]  env_csr_m_readdata                      ,
-    output logic [BAR_DATA_WIDTH-1:0]  env_csr_m_writedata                     ,
-    output logic                       env_csr_m_read                          ,
-    output logic                       env_csr_m_write                         ,
-    input  logic                       env_csr_m_readdatavalid                 ,
-    input  logic                       env_csr_m_waitrequest                   ,
-    output logic [BAR_ADDR_WIDTH:0]    env_csr_m_address                       ,
+    output logic                         env_csr_m_chipselect                    ,
+    output logic [BAR_DATA_BYTES-1:0]    env_csr_m_byteenable                    ,
+    input  logic [BAR_DATA_WIDTH-1:0]    env_csr_m_readdata                      ,
+    output logic [BAR_DATA_WIDTH-1:0]    env_csr_m_writedata                     ,
+    output logic                         env_csr_m_read                          ,
+    output logic                         env_csr_m_write                         ,
+    input  logic                         env_csr_m_readdatavalid                 ,
+    input  logic                         env_csr_m_waitrequest                   ,
+    output logic [BAR_ADDR_WIDTH:0]      env_csr_m_address                       ,
 
-    input  logic                       user_irq_i                              ,
+    input  logic [DMA_CHANNEL_COUNT-1:0] user_irq_i                              ,
 
-    output logic                       dma_clk_o                               ,
-    output logic                       dma_resetn_o                            ,
-    output logic                       pcie_resetn_o                           
+    output logic                         dma_clk_o                               ,
+    output logic                         dma_resetn_o                            ,
+    output logic                         pcie_resetn_o                           
 
 );
 

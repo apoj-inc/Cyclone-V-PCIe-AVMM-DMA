@@ -9,7 +9,7 @@
 #include <time.h>
 
 #define ARRAY_SIZE (uint64_t)(1024*16/8)
-#define DMA_CHANNEL_COUNT 8
+#define DMA_CHANNEL_COUNT 2
 #define TASK_MULTIPLIER 128
 
 uint64_t kal[DMA_CHANNEL_COUNT][TASK_MULTIPLIER][ARRAY_SIZE];
@@ -36,8 +36,8 @@ void *dma_write (void *index) {
 
 void *trash (void *index) {
     for (int i = 0; i < TASK_MULTIPLIER; i++) {
-        pthread_create(&subthreads[0][i*2], NULL, dma_read, (void *)(uint64_t)(i % DMA_CHANNEL_COUNT));
-        pthread_create(&subthreads[0][i*2+1], NULL, dma_write, (void *)(uint64_t)(i % DMA_CHANNEL_COUNT));
+        pthread_create(&subthreads[0][i*2], NULL, dma_read, (void *)((uint64_t)(i % DMA_CHANNEL_COUNT) + ((uint64_t)(i) << 32)));
+        pthread_create(&subthreads[0][i*2+1], NULL, dma_write, (void *)((uint64_t)(i % DMA_CHANNEL_COUNT) + ((uint64_t)(i) << 32)));
     }
     for (int i = 0; i < TASK_MULTIPLIER; i++) {
         pthread_join(subthreads[0][i*2], NULL);
