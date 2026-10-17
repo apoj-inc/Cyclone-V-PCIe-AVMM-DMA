@@ -27,7 +27,7 @@ module avmm_dma_toplevel #(
 
     output logic                         FAN_CTRL                                ,
 
-    inout  logic                         PCIE_PERST_n                            ,
+    input  logic                         PCIE_PERST_n                            ,
     input  logic                         PCIE_REFCLK_p                           ,
     input  logic [3:0]                   PCIE_RX_p                               ,
     output logic [3:0]                   PCIE_TX_p                               ,
@@ -57,7 +57,9 @@ module avmm_dma_toplevel #(
 
     output logic                         dma_clk_o                               ,
     output logic                         dma_resetn_o                            ,
-    output logic                         pcie_resetn_o                           
+    output logic                         pcie_resetn_o                           ,
+
+    output logic                         pll_50mhz_clk_o                         
 
 );
 
