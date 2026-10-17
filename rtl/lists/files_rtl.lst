@@ -4,10 +4,10 @@ rtl/src/avmm_dma/avmm_dma_engine.sv
 rtl/src/avmm_dma/avmm_dma_msix_table.sv
 rtl/src/avmm_dma/avmm_dma_task_demux.sv
 rtl/src/avmm_dma/avmm_dma_task_transport.sv
-rtl/src/avmm_dma/avmm_dma_top.sv
+rtl/src/avmm_dma/avmm_dma_assembly.sv
 rtl/src/avmm_dma/avmm_dma_dmic.sv
 rtl/src/avmm_dma/avmm_exporter.sv
 rtl/src/example/external_csr.sv
 rtl/src/example/avmm_dma_echodevice.sv
-rtl/src/example/avmm_dma_interchannel.sv
-rtl/src/avmm_dma_example_top.sv
+rtl/src/example/avmm_dma_example_top.sv
+rtl/src/avmm_dma_toplevel.sv

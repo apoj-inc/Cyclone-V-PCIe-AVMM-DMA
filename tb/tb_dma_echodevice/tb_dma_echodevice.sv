@@ -410,7 +410,7 @@ initial begin
             @(posedge clk);
         end
         current_struct = csr_s_readdata[31:0];
-        $write("DMA address for channel %u: 0x%x; ", 4'(i), dut.u_avmm_dma_top.dma_addr[i]);
+        $write("DMA address for channel %u: 0x%x; ", 4'(i), dut.u_avmm_dma_assembly.dma_addr[i]);
         $display("Next address: 0x%x;", current_struct);
     end
 
@@ -427,7 +427,7 @@ initial begin
             @(posedge clk);
         end
         @(posedge clk);
-        $write("MSI-X for DMA channel %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(i), dut.u_avmm_dma_top.dma_msix_mask[i][0], dut.u_avmm_dma_top.dma_msix_data[i], dut.u_avmm_dma_top.dma_msix_addrs[i]);
+        $write("MSI-X for DMA channel %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(i), dut.u_avmm_dma_assembly.dma_msix_mask[i][0], dut.u_avmm_dma_assembly.dma_msix_data[i], dut.u_avmm_dma_assembly.dma_msix_addrs[i]);
     end
     
     for (int i = DMA_CHANNEL_COUNT; i < DMA_CHANNEL_COUNT*2; i++) begin
@@ -445,7 +445,7 @@ initial begin
             @(posedge clk);
         end
         @(posedge clk);
-        $write("MSI-X for user %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(i), dut.u_avmm_dma_top.user_msix_mask[index][0], dut.u_avmm_dma_top.user_msix_data[index], dut.u_avmm_dma_top.user_msix_addrs[index]);
+        $write("MSI-X for user %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(i), dut.u_avmm_dma_assembly.user_msix_mask[index][0], dut.u_avmm_dma_assembly.user_msix_data[index], dut.u_avmm_dma_assembly.user_msix_addrs[index]);
     end
 
     
@@ -655,7 +655,7 @@ initial begin
                 @(posedge clk);
             end
             @(posedge clk);
-            $write("MSI-X for DMA channel %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(j), dut.u_avmm_dma_top.dma_msix_mask[j][0], dut.u_avmm_dma_top.dma_msix_data[j], dut.u_avmm_dma_top.dma_msix_addrs[j]);
+            $write("MSI-X for DMA channel %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(j), dut.u_avmm_dma_assembly.dma_msix_mask[j][0], dut.u_avmm_dma_assembly.dma_msix_data[j], dut.u_avmm_dma_assembly.dma_msix_addrs[j]);
         end
     end
 
@@ -720,7 +720,7 @@ initial begin
             @(posedge clk);
         end
         @(posedge clk);
-        $write("MSI-X for user %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(index), dut.u_avmm_dma_top.user_msix_mask[index][0], dut.u_avmm_dma_top.user_msix_data[index], dut.u_avmm_dma_top.user_msix_addrs[index]);
+        $write("MSI-X for user %u: mask 0x%x, data 0x%x, addr 0x%x;\n", 4'(index), dut.u_avmm_dma_assembly.user_msix_mask[index][0], dut.u_avmm_dma_assembly.user_msix_data[index], dut.u_avmm_dma_assembly.user_msix_addrs[index]);
     end
     while (user_msix_log.size() != MSIX_COUNT/2) begin
         @(posedge clk);

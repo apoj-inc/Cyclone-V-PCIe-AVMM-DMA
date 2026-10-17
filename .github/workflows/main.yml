@@ -73,6 +73,18 @@ jobs:
           make -f build_system/cctb/makefile run; \
           make -f build_system/autotest/makefile run_pytest TESTS_DIRS=tb/tb_dma_csr"
         timeout-minutes: 15
+
+      - name: Archive artifacts
+        if: always()
+        shell: bash
+        run: tar -cvf ${{ runner.temp }}/logs.tar ./.cache
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_system_logs
+          path: ${{ runner.temp }}/logs.tar
     
   run_tests:
     runs-on: ubuntu-latest
@@ -98,6 +110,18 @@ jobs:
         shell: bash
         run: docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools-dev:latest "make -f build_system/autotest/makefile run_pytest"
         timeout-minutes: 120
+
+      - name: Archive artifacts
+        if: always()
+        shell: bash
+        run: tar -cvf ${{ runner.temp }}/logs.tar ./.cache
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_system_logs
+          path: ${{ runner.temp }}/logs.tar
   
   check_releases:
     runs-on: ubuntu-latest
@@ -123,3 +147,15 @@ jobs:
         shell: bash
         run: docker run ${{env.ALTERA_TOOLS_ARGS}} altera_tools-dev:latest "make -f build_system/quartus/makefile create_releases"
         timeout-minutes: 60
+
+      - name: Archive artifacts
+        if: always()
+        shell: bash
+        run: tar -cvf ${{ runner.temp }}/logs.tar ./.cache
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_system_logs
+          path: ${{ runner.temp }}/logs.tar
