@@ -1,133 +1,65 @@
-// ============================================================================
-// Copyright (c) 2017 by Terasic Technologies Inc.
-// ============================================================================
-//
-// Permission:
-//
-//   Terasic grants permission to use and modify this code for use
-//   in synthesis for all Terasic Development Boards and Altera Development 
-//   Kits made by Terasic.  Other use of this code, including the selling 
-//   ,duplication, or modification of any portion is strictly prohibited.
-//
-// Disclaimer:
-//
-//   This VHDL/Verilog or C/C++ source code is intended as a design referencea
-//   which illustrates how these types of functions can be implemented.
-//   It is the user's responsibility to verify their design for
-//   consistency and functionality through the use of formal
-//   verification methods.  Terasic provides no warranty regarding the use 
-//   or functionality of this code.
-//
-// ============================================================================
-//           
-//  Terasic Technologies Inc
-//  9F., No.176, Sec.2, Gongdao 5th Rd, East Dist, Hsinchu City, 30070. Taiwan
-//  
-//  
-//                     web: http://www.terasic.com/  
-//                     email: support@terasic.com
-//
-// ============================================================================
-//Date:  Tue Nov 21 13:54:58 2017
-// ============================================================================
-`define ENABLE_PCIE
+module avmm_dma_toplevel #(
+    parameter     DMA_CHANNEL_COUNT                     = 8         ,
 
-module avmm_dma_example_top(
+    parameter     DMA_BYTES_WIDTH                       = 22        ,
+    parameter     DMA_OFFFSET_WIDTH                     = 22        ,
 
-    //////////// CLOCK //////////
-    input                           CLOCK_50_B3B,
-    input                           CLOCK_50_B4A,
-    input                           CLOCK_50_B5B,
-    input                           CLOCK_50_B6A,
-    input                           CLOCK_50_B7A,
-    input                           CLOCK_50_B8A,
+    parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{8 {16 }},
+    parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {64 }},
+    parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {64 }},
+    parameter     DMA_TQ_DEPTH                          = 8         ,
 
-    //////////// Buttons //////////
-    input                           CPU_RESET_n,
-    input              [3:0]        KEY,
+    parameter     MAX_WQ_DEPTH                          = 64        ,
+    parameter     MAX_RQ_DEPTH                          = 64        ,
 
-    //////////// Swtiches //////////
-    input              [3:0]        SW,
+    parameter     BAR_DATA_WIDTH                        = 128       ,
+    parameter     BAR_ADDR_WIDTH                        = 12        ,
 
-    //////////// LED //////////
-    output             [3:0]        LED,
+    parameter     TX_DATA_WIDTH                         = 128       ,
+    parameter     TX_ADDR_WIDTH                         = 64        ,
+    parameter     TX_BURST_WIDTH                        = 6         ,
 
-    //////////// HEX0 //////////
-    output             [6:0]        HEX0,
-    output                          HEX0_DP,
+    parameter BAR_DATA_BYTES    = BAR_DATA_WIDTH / 8  ,
+    parameter TX_DATA_BYTES     = TX_DATA_WIDTH / 8   ,
+    parameter DMA_WQ_ADDR_WIDTH = $clog2(MAX_WQ_DEPTH),
+    parameter DMA_RQ_ADDR_WIDTH = $clog2(MAX_RQ_DEPTH)
+) (
 
-    //////////// HEX1 //////////
-    output             [6:0]        HEX1,
-    output                          HEX1_DP,
+    output logic                       FAN_CTRL                                ,
 
-    //////////// FAN //////////
-    output                          FAN_CTRL,
+    inout  logic                       PCIE_PERST_n                            ,
+    input  logic                       PCIE_REFCLK_p                           ,
+    input  logic [3:0]                 PCIE_RX_p                               ,
+    output logic [3:0]                 PCIE_TX_p                               ,
 
-    //////////// SDRAM //////////
-    output            [12:0]        DRAM_ADDR,
-    output             [1:0]        DRAM_BA,
-    output                          DRAM_CAS_n,
-    output                          DRAM_CKE,
-    output                          DRAM_CLK,
-    output                          DRAM_CS_n,
-    inout             [15:0]        DRAM_DQ,
-    output                          DRAM_LDQM,
-    output                          DRAM_RAS_n,
-    output                          DRAM_UDQM,
-    output                          DRAM_WE_n,
+    input  logic                       dma_wrdata_valid_i   [DMA_CHANNEL_COUNT],
+    output logic                       dma_wrdata_ready_o   [DMA_CHANNEL_COUNT],
+    input  logic [DMA_WQ_ADDR_WIDTH:0] dma_wrdata_count_i   [DMA_CHANNEL_COUNT],
+    input  logic [TX_DATA_WIDTH-1:0]   dma_wrdata_data_i    [DMA_CHANNEL_COUNT],
 
-    //////////// Uart to Usb //////////
-    input                           UART_CTS,
-    output                          UART_RTS,
-    input                           UART_RX,
-    output                          UART_TX,
+    output logic                       dma_rddata_valid_o   [DMA_CHANNEL_COUNT],
+    input  logic                       dma_rddata_ready_i   [DMA_CHANNEL_COUNT],
+    input  logic [DMA_RQ_ADDR_WIDTH:0] dma_rddata_free_i    [DMA_CHANNEL_COUNT],
+    output logic [TX_DATA_WIDTH-1:0]   dma_rddata_data_o    [DMA_CHANNEL_COUNT],
 
-    //////////// Arduino Interface //////////
-    output                          ADC_CONVST,
-    output                          ADC_SCK,
-    output                          ADC_SDI,
-    input                           ADC_SDO,
-    inout             [15:0]        ARD_IO,
     
-`ifdef ENABLE_PCIE
-    //////////// PCIE //////////
-    inout                           PCIE_PERST_n,
-    input                           PCIE_REFCLK_p,
-    input              [3:0]        PCIE_RX_p,
-    inout                           PCIE_SMBCLK,
-    inout                           PCIE_SMBDAT,
-    output             [3:0]        PCIE_TX_p,
-    inout                           PCIE_WAKE_n,
-`endif /*ENABLE_PCIE*/
+    output logic                       env_csr_m_chipselect                    ,
+    output logic [BAR_DATA_BYTES-1:0]  env_csr_m_byteenable                    ,
+    input  logic [BAR_DATA_WIDTH-1:0]  env_csr_m_readdata                      ,
+    output logic [BAR_DATA_WIDTH-1:0]  env_csr_m_writedata                     ,
+    output logic                       env_csr_m_read                          ,
+    output logic                       env_csr_m_write                         ,
+    input  logic                       env_csr_m_readdatavalid                 ,
+    input  logic                       env_csr_m_waitrequest                   ,
+    output logic [BAR_ADDR_WIDTH:0]    env_csr_m_address                       ,
 
-    //////////// SMA //////////
-    input                           SMA_CLKIN,
-    output                          SMA_CLKOUT
+    input  logic                       user_irq_i                              ,
+
+    output logic                       dma_resetn_o                            
+
 );
 
 assign FAN_CTRL = 1;
-
-
-parameter     DMA_ECHODEVICE                        = 0         ;
-parameter     DMA_CHANNEL_COUNT                     = 8         ;
-
-parameter     DMA_BYTES_WIDTH                       = 22        ;
-parameter     DMA_OFFFSET_WIDTH                     = 22        ;
-
-parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{8 {16 }};
-parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {64 }};
-parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8 {64 }};
-parameter int DMA_TQ_DEPTH                          = 8         ;
-
-parameter int MAX_WQ_DEPTH                          = 64        ;
-parameter int MAX_RQ_DEPTH                          = 64        ;
-
-parameter     BAR_DATA_WIDTH                        = 128       ;
-parameter     BAR_ADDR_WIDTH                        = 12        ;
-
-parameter     TX_DATA_WIDTH                         = 128       ;
-parameter     TX_ADDR_WIDTH                         = 64        ;
-parameter     TX_BURST_WIDTH                        = 6         ;
 
 logic           pll_50mhz_clk                   ;
 
@@ -178,16 +110,6 @@ logic         msix_avmm_s_readdatavalid         ;
 logic         msix_avmm_s_waitrequest           ;
 logic [63:0]  msix_avmm_s_address               ;
 
-logic         env_csr_m_chipselect              ;
-logic [15:0]  env_csr_m_byteenable              ;
-logic [127:0] env_csr_m_readdata                ;
-logic [127:0] env_csr_m_writedata               ;
-logic         env_csr_m_read                    ;
-logic         env_csr_m_write                   ;
-logic         env_csr_m_readdatavalid           ;
-logic         env_csr_m_waitrequest             ;
-logic [12:0]  env_csr_m_address                 ;
-
 logic         dma_avmm_s_chipselect        [16] ;
 logic [15:0]  dma_avmm_s_byteenable        [16] ;
 logic [127:0] dma_avmm_s_readdata          [16] ;
@@ -231,184 +153,96 @@ always @(posedge core_clk_clk or negedge PCIE_PERST_n) begin
     end
 end
 
-generate
-    if (DMA_ECHODEVICE) begin : echodevice
-        avmm_dma_echodevice #(
-            .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+avmm_dma_assembly #(
+    .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
 
-            .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
-            .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
-            .DMA_WORD_BYTES    (DMA_WORD_BYTES   ),
+    .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
+    .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
 
-            .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
-            .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     ),
-            .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     ),
+    .DMA_WORD_BYTES    (DMA_WORD_BYTES   ),
+    .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
+    .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     ),
+    .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     ),
 
-            .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
-            .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     ),
+    .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
+    .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     ),
 
-            .BAR_DATA_WIDTH    (BAR_DATA_WIDTH   ),
-            .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH   ),
+    .BAR_DATA_WIDTH    (BAR_DATA_WIDTH   ),
+    .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH   ),
 
-            .TX_DATA_WIDTH     (TX_DATA_WIDTH    ),
-            .TX_ADDR_WIDTH     (TX_ADDR_WIDTH    ),
-            .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
-        ) u_avmm_dma_echodevice (
-            .clk                       (core_clk_clk                                        ),
-            .rst_n                     (core_reset_reset_n                                  ),
+    .TX_DATA_WIDTH     (TX_DATA_WIDTH    ),
+    .TX_ADDR_WIDTH     (TX_ADDR_WIDTH    ),
+    .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
+) (
+    .clk                       (core_clk_clk                                        ),
+    .rst_n                     (core_reset_reset_n                                  ),
 
-            .csr_s_chipselect          (csr_avmm_m_chipselect                               ),
-            .csr_s_byteenable          (csr_avmm_m_byteenable                               ),
-            .csr_s_readdata            (csr_avmm_m_readdata                                 ),
-            .csr_s_writedata           (csr_avmm_m_writedata                                ),
-            .csr_s_read                (csr_avmm_m_read                                     ),
-            .csr_s_write               (csr_avmm_m_write                                    ),
-            .csr_s_readdatavalid       (csr_avmm_m_readdatavalid                            ),
-            .csr_s_waitrequest         (csr_avmm_m_waitrequest                              ),
-            .csr_s_address             (csr_avmm_m_address                                  ),
+    .csr_s_chipselect          (csr_avmm_m_chipselect                               ),
+    .csr_s_byteenable          (csr_avmm_m_byteenable                               ),
+    .csr_s_readdata            (csr_avmm_m_readdata                                 ),
+    .csr_s_writedata           (csr_avmm_m_writedata                                ),
+    .csr_s_read                (csr_avmm_m_read                                     ),
+    .csr_s_write               (csr_avmm_m_write                                    ),
+    .csr_s_readdatavalid       (csr_avmm_m_readdatavalid                            ),
+    .csr_s_waitrequest         (csr_avmm_m_waitrequest                              ),
+    .csr_s_address             (csr_avmm_m_address                                  ),
 
-            .msix_s_chipselect         (msix_avmm_m_chipselect                              ),
-            .msix_s_byteenable         (msix_avmm_m_byteenable                              ),
-            .msix_s_readdata           (msix_avmm_m_readdata                                ),
-            .msix_s_writedata          (msix_avmm_m_writedata                               ),
-            .msix_s_read               (msix_avmm_m_read                                    ),
-            .msix_s_write              (msix_avmm_m_write                                   ),
-            .msix_s_readdatavalid      (msix_avmm_m_readdatavalid                           ),
-            .msix_s_waitrequest        (msix_avmm_m_waitrequest                             ),
-            .msix_s_address            (msix_avmm_m_address                                 ),
+    .msix_s_chipselect         (msix_avmm_m_chipselect                              ),
+    .msix_s_byteenable         (msix_avmm_m_byteenable                              ),
+    .msix_s_readdata           (msix_avmm_m_readdata                                ),
+    .msix_s_writedata          (msix_avmm_m_writedata                               ),
+    .msix_s_read               (msix_avmm_m_read                                    ),
+    .msix_s_write              (msix_avmm_m_write                                   ),
+    .msix_s_readdatavalid      (msix_avmm_m_readdatavalid                           ),
+    .msix_s_waitrequest        (msix_avmm_m_waitrequest                             ),
+    .msix_s_address            (msix_avmm_m_address                                 ),
 
-            .dec_s_chipselect          (decoder_avmm_m_chipselect                           ),
-            .dec_s_byteenable          (decoder_avmm_m_byteenable                           ),
-            .dec_s_readdata            (decoder_avmm_m_readdata                             ),
-            .dec_s_writedata           (decoder_avmm_m_writedata                            ),
-            .dec_s_read                (decoder_avmm_m_read                                 ),
-            .dec_s_write               (decoder_avmm_m_write                                ),
-            .dec_s_readdatavalid       (decoder_avmm_m_readdatavalid                        ),
-            .dec_s_waitrequest         (decoder_avmm_m_waitrequest                          ),
-            .dec_s_address             (decoder_avmm_m_address                              ),
+    .dec_s_chipselect          (decoder_avmm_m_chipselect                           ),
+    .dec_s_byteenable          (decoder_avmm_m_byteenable                           ),
+    .dec_s_readdata            (decoder_avmm_m_readdata                             ),
+    .dec_s_writedata           (decoder_avmm_m_writedata                            ),
+    .dec_s_read                (decoder_avmm_m_read                                 ),
+    .dec_s_write               (decoder_avmm_m_write                                ),
+    .dec_s_readdatavalid       (decoder_avmm_m_readdatavalid                        ),
+    .dec_s_waitrequest         (decoder_avmm_m_waitrequest                          ),
+    .dec_s_address             (decoder_avmm_m_address                              ),
 
-            .user_csr_s_chipselect     (env_csr_m_chipselect                                ),
-            .user_csr_s_byteenable     (env_csr_m_byteenable                                ),
-            .user_csr_s_readdata       (env_csr_m_readdata                                  ),
-            .user_csr_s_writedata      (env_csr_m_writedata                                 ),
-            .user_csr_s_read           (env_csr_m_read                                      ),
-            .user_csr_s_write          (env_csr_m_write                                     ),
-            .user_csr_s_readdatavalid  (env_csr_m_readdatavalid                             ),
-            .user_csr_s_waitrequest    (env_csr_m_waitrequest                               ),
-            .user_csr_s_address        (env_csr_m_address                                   ),
+    .user_irq_i                (user_irq_i                                          ),
 
-            .tx_chipselect             (dma_avmm_s_chipselect        [0:DMA_CHANNEL_COUNT-1]),
-            .tx_byteenable             (dma_avmm_s_byteenable        [0:DMA_CHANNEL_COUNT-1]),
-            .tx_readdata               (dma_avmm_s_readdata          [0:DMA_CHANNEL_COUNT-1]),
-            .tx_writedata              (dma_avmm_s_writedata         [0:DMA_CHANNEL_COUNT-1]),
-            .tx_read                   (dma_avmm_s_read              [0:DMA_CHANNEL_COUNT-1]),
-            .tx_write                  (dma_avmm_s_write             [0:DMA_CHANNEL_COUNT-1]),
-            .tx_burstcount             (dma_avmm_s_burstcount        [0:DMA_CHANNEL_COUNT-1]),
-            .tx_readdatavalid          (dma_avmm_s_readdatavalid     [0:DMA_CHANNEL_COUNT-1]),
-            .tx_waitrequest            (dma_avmm_s_waitrequest       [0:DMA_CHANNEL_COUNT-1]),
-            .tx_address                (dma_avmm_s_address           [0:DMA_CHANNEL_COUNT-1]),
+    .tx_chipselect             (dma_avmm_s_chipselect        [0:DMA_CHANNEL_COUNT-1]),
+    .tx_byteenable             (dma_avmm_s_byteenable        [0:DMA_CHANNEL_COUNT-1]),
+    .tx_readdata               (dma_avmm_s_readdata          [0:DMA_CHANNEL_COUNT-1]),
+    .tx_writedata              (dma_avmm_s_writedata         [0:DMA_CHANNEL_COUNT-1]),
+    .tx_read                   (dma_avmm_s_read              [0:DMA_CHANNEL_COUNT-1]),
+    .tx_write                  (dma_avmm_s_write             [0:DMA_CHANNEL_COUNT-1]),
+    .tx_burstcount             (dma_avmm_s_burstcount        [0:DMA_CHANNEL_COUNT-1]),
+    .tx_readdatavalid          (dma_avmm_s_readdatavalid     [0:DMA_CHANNEL_COUNT-1]),
+    .tx_waitrequest            (dma_avmm_s_waitrequest       [0:DMA_CHANNEL_COUNT-1]),
+    .tx_address                (dma_avmm_s_address           [0:DMA_CHANNEL_COUNT-1]),
 
-            .msix_m_chipselect         (msix_avmm_s_chipselect                              ),
-            .msix_m_byteenable         (msix_avmm_s_byteenable                              ),
-            .msix_m_readdata           (msix_avmm_s_readdata                                ),
-            .msix_m_writedata          (msix_avmm_s_writedata                               ),
-            .msix_m_read               (msix_avmm_s_read                                    ),
-            .msix_m_write              (msix_avmm_s_write                                   ),
-            .msix_m_burstcount         (msix_avmm_s_burstcount                              ),
-            .msix_m_readdatavalid      (msix_avmm_s_readdatavalid                           ),
-            .msix_m_waitrequest        (msix_avmm_s_waitrequest                             ),
-            .msix_m_address            (msix_avmm_s_address                                 )
-        );
-    end
-    else begin : interchannel
-        avmm_dma_interchannel #(
-            .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+    .msix_m_chipselect         (msix_avmm_s_chipselect                              ),
+    .msix_m_byteenable         (msix_avmm_s_byteenable                              ),
+    .msix_m_readdata           (msix_avmm_s_readdata                                ),
+    .msix_m_writedata          (msix_avmm_s_writedata                               ),
+    .msix_m_read               (msix_avmm_s_read                                    ),
+    .msix_m_write              (msix_avmm_s_write                                   ),
+    .msix_m_burstcount         (msix_avmm_s_burstcount                              ),
+    .msix_m_readdatavalid      (msix_avmm_s_readdatavalid                           ),
+    .msix_m_waitrequest        (msix_avmm_s_waitrequest                             ),
+    .msix_m_address            (msix_avmm_s_address                                 ),
 
-            .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
-            .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
-            .DMA_WORD_BYTES    (DMA_WORD_BYTES   ),
+    .dma_wrdata_valid_i        (dma_wrdata_valid_i                                  ),
+    .dma_wrdata_ready_o        (dma_wrdata_ready_o                                  ),
+    .dma_wrdata_count_i        (dma_wrdata_count_i                                  ),
+    .dma_wrdata_data_i         (dma_wrdata_data_i                                   ),
 
-            .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
-            .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     ),
-            .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     ),
+    .dma_rddata_valid_o        (dma_rddata_valid_o                                  ),
+    .dma_rddata_ready_i        (dma_rddata_ready_i                                  ),
+    .dma_rddata_free_i         (dma_rddata_free_i                                   ),
+    .dma_rddata_data_o         (dma_rddata_data_o                                   ),
 
-            .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
-            .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     ),
-
-            .BAR_DATA_WIDTH    (BAR_DATA_WIDTH   ),
-            .BAR_ADDR_WIDTH    (BAR_ADDR_WIDTH   ),
-
-            .TX_DATA_WIDTH     (TX_DATA_WIDTH    ),
-            .TX_ADDR_WIDTH     (TX_ADDR_WIDTH    ),
-            .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
-        ) u_avmm_dma_interchannel (
-            .clk                       (core_clk_clk                                        ),
-            .rst_n                     (core_reset_reset_n                                  ),
-
-            .csr_s_chipselect          (csr_avmm_m_chipselect                               ),
-            .csr_s_byteenable          (csr_avmm_m_byteenable                               ),
-            .csr_s_readdata            (csr_avmm_m_readdata                                 ),
-            .csr_s_writedata           (csr_avmm_m_writedata                                ),
-            .csr_s_read                (csr_avmm_m_read                                     ),
-            .csr_s_write               (csr_avmm_m_write                                    ),
-            .csr_s_readdatavalid       (csr_avmm_m_readdatavalid                            ),
-            .csr_s_waitrequest         (csr_avmm_m_waitrequest                              ),
-            .csr_s_address             (csr_avmm_m_address                                  ),
-
-            .msix_s_chipselect         (msix_avmm_m_chipselect                              ),
-            .msix_s_byteenable         (msix_avmm_m_byteenable                              ),
-            .msix_s_readdata           (msix_avmm_m_readdata                                ),
-            .msix_s_writedata          (msix_avmm_m_writedata                               ),
-            .msix_s_read               (msix_avmm_m_read                                    ),
-            .msix_s_write              (msix_avmm_m_write                                   ),
-            .msix_s_readdatavalid      (msix_avmm_m_readdatavalid                           ),
-            .msix_s_waitrequest        (msix_avmm_m_waitrequest                             ),
-            .msix_s_address            (msix_avmm_m_address                                 ),
-
-            .dec_s_chipselect          (decoder_avmm_m_chipselect                           ),
-            .dec_s_byteenable          (decoder_avmm_m_byteenable                           ),
-            .dec_s_readdata            (decoder_avmm_m_readdata                             ),
-            .dec_s_writedata           (decoder_avmm_m_writedata                            ),
-            .dec_s_read                (decoder_avmm_m_read                                 ),
-            .dec_s_write               (decoder_avmm_m_write                                ),
-            .dec_s_readdatavalid       (decoder_avmm_m_readdatavalid                        ),
-            .dec_s_waitrequest         (decoder_avmm_m_waitrequest                          ),
-            .dec_s_address             (decoder_avmm_m_address                              ),
-
-            .user_csr_s_chipselect     (env_csr_m_chipselect                                ),
-            .user_csr_s_byteenable     (env_csr_m_byteenable                                ),
-            .user_csr_s_readdata       (env_csr_m_readdata                                  ),
-            .user_csr_s_writedata      (env_csr_m_writedata                                 ),
-            .user_csr_s_read           (env_csr_m_read                                      ),
-            .user_csr_s_write          (env_csr_m_write                                     ),
-            .user_csr_s_readdatavalid  (env_csr_m_readdatavalid                             ),
-            .user_csr_s_waitrequest    (env_csr_m_waitrequest                               ),
-            .user_csr_s_address        (env_csr_m_address                                   ),
-
-            .tx_chipselect             (dma_avmm_s_chipselect        [0:DMA_CHANNEL_COUNT-1]),
-            .tx_byteenable             (dma_avmm_s_byteenable        [0:DMA_CHANNEL_COUNT-1]),
-            .tx_readdata               (dma_avmm_s_readdata          [0:DMA_CHANNEL_COUNT-1]),
-            .tx_writedata              (dma_avmm_s_writedata         [0:DMA_CHANNEL_COUNT-1]),
-            .tx_read                   (dma_avmm_s_read              [0:DMA_CHANNEL_COUNT-1]),
-            .tx_write                  (dma_avmm_s_write             [0:DMA_CHANNEL_COUNT-1]),
-            .tx_burstcount             (dma_avmm_s_burstcount        [0:DMA_CHANNEL_COUNT-1]),
-            .tx_readdatavalid          (dma_avmm_s_readdatavalid     [0:DMA_CHANNEL_COUNT-1]),
-            .tx_waitrequest            (dma_avmm_s_waitrequest       [0:DMA_CHANNEL_COUNT-1]),
-            .tx_address                (dma_avmm_s_address           [0:DMA_CHANNEL_COUNT-1]),
-
-            .msix_m_chipselect         (msix_avmm_s_chipselect                              ),
-            .msix_m_byteenable         (msix_avmm_s_byteenable                              ),
-            .msix_m_readdata           (msix_avmm_s_readdata                                ),
-            .msix_m_writedata          (msix_avmm_s_writedata                               ),
-            .msix_m_read               (msix_avmm_s_read                                    ),
-            .msix_m_write              (msix_avmm_s_write                                   ),
-            .msix_m_burstcount         (msix_avmm_s_burstcount                              ),
-            .msix_m_readdatavalid      (msix_avmm_s_readdatavalid                           ),
-            .msix_m_waitrequest        (msix_avmm_s_waitrequest                             ),
-            .msix_m_address            (msix_avmm_s_address                                 )
-        );
-    end
-endgenerate
+    .dma_resetn_o              (dma_resetn_o                                        )
+);
 
 my_pcie u_my_pcie (
         .pll_50mhz_clk                                            (pll_50mhz_clk                      ),

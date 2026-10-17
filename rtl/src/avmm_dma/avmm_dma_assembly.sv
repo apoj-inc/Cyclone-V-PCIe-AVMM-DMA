@@ -1,4 +1,4 @@
-module avmm_dma_top #(
+module avmm_dma_assembly #(
     parameter     DMA_CHANNEL_COUNT                     = 16         ,
     
     parameter     DMA_BYTES_WIDTH                       = 22         ,
