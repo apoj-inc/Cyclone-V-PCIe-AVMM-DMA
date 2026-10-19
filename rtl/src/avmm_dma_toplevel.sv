@@ -65,8 +65,6 @@ module avmm_dma_toplevel #(
 
 assign FAN_CTRL = 1;
 
-logic           pll_50mhz_clk                   ;
-
 logic         core_clk_clk                 ;
 logic         core_reset_reset_n           ;
 
@@ -133,7 +131,7 @@ logic clock_50_rstn_r  /* synthesis ALTERA_ATTRIBUTE = "SUPPRESS_DA_RULE_INTERNA
 logic clock_50_rstn_rr /* synthesis ALTERA_ATTRIBUTE = "SUPPRESS_DA_RULE_INTERNAL=R102"  */;
 
 //reset Synchronizer
-always @(posedge pll_50mhz_clk or negedge PCIE_PERST_n) begin
+always @(posedge pll_50mhz_clk_o or negedge PCIE_PERST_n) begin
     if (!PCIE_PERST_n) begin
         clock_50_rstn_r  <= 0;
         clock_50_rstn_rr <= 0;
@@ -180,7 +178,7 @@ avmm_dma_assembly #(
     .TX_DATA_WIDTH     (TX_DATA_WIDTH    ),
     .TX_ADDR_WIDTH     (TX_ADDR_WIDTH    ),
     .TX_BURST_WIDTH    (TX_BURST_WIDTH   )
-) (
+) u_avmm_dma_assembly (
     .clk                       (core_clk_clk                                        ),
     .rst_n                     (core_reset_reset_n                                  ),
 
@@ -252,7 +250,7 @@ avmm_dma_assembly #(
 );
 
 my_pcie u_my_pcie (
-        .pll_50mhz_clk                                            (pll_50mhz_clk                      ),
+        .pll_50mhz_clk                                            (pll_50mhz_clk_o                    ),
         .core_clk_clk                                             (core_clk_clk                       ),
         .core_reset_reset_n                                       (core_reset_reset_n                 ),
         .csr_avmm_m_address                                       (csr_avmm_m_address                 ),
